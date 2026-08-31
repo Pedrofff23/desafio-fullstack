@@ -93,7 +93,9 @@ async def seed_localizacoes(session) -> None:
     """))
     await session.execute(text("""
         INSERT INTO prateleiras (seccao_id, nome, nivel)
-        SELECT id, 'Prateleira 1', 1 FROM seccoes
+        SELECT s.id, 'Prateleira ' || niveis.nivel, niveis.nivel
+        FROM seccoes s
+        CROSS JOIN (VALUES (1), (2)) AS niveis(nivel)
         ON CONFLICT (seccao_id, nome) DO NOTHING
     """))
     await session.execute(text("""
