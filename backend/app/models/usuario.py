@@ -34,7 +34,10 @@ class Funcionario(Base):
 
     endereco: Mapped["Endereco"] = relationship()
     contato: Mapped["Contato"] = relationship()
-    usuario: Mapped["Usuario | None"] = relationship(back_populates="funcionario")
+    usuario: Mapped["Usuario | None"] = relationship(
+        back_populates="funcionario",
+        foreign_keys="Usuario.funcionario_id"
+    )
 
 
 class Usuario(Base):
@@ -54,7 +57,10 @@ class Usuario(Base):
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     excluido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
-    funcionario: Mapped["Funcionario"] = relationship(back_populates="usuario")
+    funcionario: Mapped["Funcionario"] = relationship(
+        back_populates="usuario",
+        foreign_keys="Usuario.funcionario_id"
+    )
     sessoes: Mapped[list["Sessao"]] = relationship(back_populates="usuario")
 
 

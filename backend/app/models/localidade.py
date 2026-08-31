@@ -21,7 +21,7 @@ class Pais(Base):
     bacen: Mapped[int | None] = mapped_column(Integer)
     ddi: Mapped[int | None] = mapped_column(Integer)
 
-    estados: Mapped[list["Estado"]] = relationship(back_populates="pais")
+    estados: Mapped[list["Estado"]] = relationship(back_populates="pais_rel")
 
 
 class Estado(Base):
