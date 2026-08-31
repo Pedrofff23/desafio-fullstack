@@ -12,9 +12,11 @@ from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.produto import Produto
+from app.models.localidade import Contato, Endereco
+from app.models.produto import LocalizacaoEstoque, Produto
 from app.models.transacao import (
     Fornecedor,
     RegistroEntrada,
@@ -22,6 +24,7 @@ from app.models.transacao import (
 )
 from app.models.usuario import Funcionario, Usuario
 from app.repositories.transacao_repository import TransacaoRepository
+from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
     FornecedorCreate,
@@ -45,37 +48,36 @@ class TransacaoService:
     # Fornecedores
     # ------------------------------------------------------------------
     async def criar_fornecedor(self, data: FornecedorCreate) -> FornecedorOut:
-        # Criar contato e endereço necessários (FKs NOT NULL)
-        from app.models.localidade import Contato, Endereco, Cidade
-
-        cidade = await self.session.execute(
-            select(Cidade).order_by(Cidade.id).limit(1)
-        )
-        cidade = cidade.scalar_one_or_none()
-        if cidade is None:
-            raise HTTPException(status_code=400, detail="Cidades não cadastradas no banco")
-
+        usuario_repo = UsuarioRepository(self.session)
+        if not await usuario_repo.cidade_pertence_ao_estado(
+            data.endereco.cidade_id, data.endereco.estado_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="A cidade informada não pertence ao estado selecionado",
+            )
         endereco = Endereco(
-            logradouro="Endereço do fornecedor",
-            numero="0",
-            complemento=None,
-            cep="00000000",
-            bairro="Centro",
-            cidade_id=cidade.id,
+            **data.endereco.model_dump(exclude={"estado_id"})
         )
-        contato = Contato(codigo_pais="+55", ddd="00", numero="000000000")
-        self.session.add(endereco)
-        self.session.add(contato)
-        await self.session.flush()
-
+        contato = Contato(
+            **data.contato.model_dump()
+        )
         fornecedor = Fornecedor(
             nome_empresa=data.nome_empresa,
-            contato_id=contato.id,
-            endereco_id=endereco.id,
+            contato=contato,
+            endereco=endereco,
             ativo=data.ativo,
         )
-        fornecedor = await self.repo.add_fornecedor(fornecedor)
-        await self.session.commit()
+        try:
+            fornecedor = await self.repo.add_fornecedor(fornecedor)
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Fornecedor, contato ou endereço já cadastrado",
+            ) from exc
+        fornecedor = await self.repo.get_fornecedor(fornecedor.id)
         return FornecedorOut.model_validate(fornecedor, from_attributes=True)
 
     async def listar_fornecedores(self) -> list[FornecedorOut]:
@@ -94,11 +96,11 @@ class TransacaoService:
         from app.models.produto import Lote
 
         lote = await self.session.get(Lote, data.lote_id)
-        if lote is None:
+        if lote is None or lote.excluido_em is not None or not lote.ativo:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
 
         fornecedor = await self.repo.get_fornecedor(data.fornecedor_id)
-        if fornecedor is None:
+        if fornecedor is None or not fornecedor.ativo:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
 
         localizacao_id = data.localizacao_id
@@ -112,14 +114,15 @@ class TransacaoService:
                 raise HTTPException(
                     status_code=400, detail="Produto sem localização cadastrada"
                 )
+        elif await self.session.get(LocalizacaoEstoque, localizacao_id) is None:
+            raise HTTPException(status_code=400, detail="Localização não encontrada")
 
         entrada = RegistroEntrada(
-            lote_id=data.lote_id,
-            fornecedor_id=data.fornecedor_id,
+            **data.model_dump(
+                exclude={"localizacao_id"},
+                exclude_none=True,
+            ),
             localizacao_id=localizacao_id,
-            quantidade=data.quantidade,
-            preco_custo=data.preco_custo,
-            preco_sugerido=data.preco_sugerido,
             funcionario_id=funcionario_id,
         )
         entrada = await self.repo.add_entrada(entrada)
@@ -144,13 +147,18 @@ class TransacaoService:
             )
 
         saida = RegistroSaida(
-            entrada_id=data.entrada_id,
-            quantidade=data.quantidade,
-            preco_venda=data.preco_venda,
+            **data.model_dump(exclude_none=True),
             funcionario_id=funcionario_id,
         )
-        saida = await self.repo.add_saida(saida)
-        await self.session.commit()
+        try:
+            saida = await self.repo.add_saida(saida)
+            await self.session.commit()
+        except DBAPIError as exc:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="Saldo insuficiente para concluir a saída",
+            ) from exc
         return RegistroSaidaOut.model_validate(saida, from_attributes=True)
 
     # ------------------------------------------------------------------
@@ -173,6 +181,7 @@ class TransacaoService:
         produto_id: int | None = None,
         tipo: str | None = None,
         funcionario_id: int | None = None,
+        quantidade: float | None = None,
         data_inicio: datetime | None = None,
         data_fim: datetime | None = None,
     ) -> PaginatedResponse[MovimentoOut]:
@@ -182,6 +191,7 @@ class TransacaoService:
             produto_id=produto_id,
             tipo=tipo,
             funcionario_id=funcionario_id,
+            quantidade=quantidade,
             data_inicio=data_inicio,
             data_fim=data_fim,
         )
@@ -209,12 +219,14 @@ class TransacaoService:
             MovimentoOut(
                 id=r["id"],
                 tipo=r["tipo"],
+                tipo_movimento=r["tipo_movimento"],
                 produto_id=r.get("produto_id"),
                 produto_nome=nomes_produto.get(r["produto_id"]) if r.get("produto_id") else None,
                 lote_id=r.get("lote_id"),
                 quantidade=float(r["quantidade"]),
                 data_movimento=r["data_movimento"],
                 preco=float(r["preco"]) if r.get("preco") is not None else None,
+                observacao=r.get("observacao"),
                 funcionario_id=r.get("funcionario_id"),
                 responsavel_email=emails_func.get(r["funcionario_id"]) if r.get("funcionario_id") else None,
             )
