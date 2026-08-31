@@ -1,10 +1,16 @@
 # Plataforma de Gerenciamento de Estoque de Produtos Alimentícios
 
-Aplicação full stack, atualmente em desenvolvimento, para gerenciamento de
+Aplicação full stack, para gerenciamento de
 usuários, produtos alimentícios e movimentações de estoque.
 
-O backend está estruturado com FastAPI, SQLAlchemy assíncrono e PostgreSQL. O
-frontend com Vue 3, TypeScript, Options API, Pinia e Vuetify.
+O plano reconstruído do projeto está em `PLANO_DE_CONCLUSAO.md`.
+
+## Estado atual
+
+- Backend, migrations e seeds concluídos.
+- Autenticação, usuários, produtos, lotes, fornecedores e estoque disponíveis.
+- Testes de integração executados em um banco PostgreSQL temporário.
+- Frontend e container do frontend ainda pendentes para a fase 4.
 
 ## Stack definida
 
@@ -30,6 +36,7 @@ frontend com Vue 3, TypeScript, Options API, Pinia e Vuetify.
 
 - Docker;
 - Docker Compose.
+- Para executar o backend fora do Docker: [uv](https://docs.astral.sh/uv/).
 
 ### 1. Criar o arquivo de ambiente
 
@@ -71,6 +78,49 @@ docker compose exec backend python -m scripts.init_db
 
 ```bash
 docker compose exec backend python -m scripts.seed_demo
+```
+
+## Comandos do Makefile
+
+Se o `make` estiver instalado no ambiente, os comandos abaixo simplificam as
+operações mais comuns. Execute `make help` para ver essa lista no terminal.
+
+| Comando | Descrição |
+|---|---|
+| `make help` | Exibe todos os comandos disponíveis. |
+| `make up` | Inicia banco e backend em segundo plano. |
+| `make build` | Reconstrói e inicia banco e backend. |
+| `make down` | Para os containers do projeto. |
+| `make restart` | Reinicia os containers. |
+| `make logs` | Acompanha os logs de todos os serviços. |
+| `make ps` | Mostra o estado dos containers. |
+| `make db-shell` | Abre o `psql` interativo no banco. |
+| `make db-check` | Mostra a migration aplicada e contagens básicas das tabelas. |
+| `make db-seed-geo` | Carrega países, estados e cidades do IBGE. |
+| `make db-seed` | Carrega dados de referência e o administrador inicial. |
+| `make db-seed-all` | Executa `db-seed-geo` e `db-seed`, nessa ordem. |
+| `make backend-shell` | Abre um shell no container do backend. |
+| `make backend-test` | Executa os testes do backend no container. |
+| `make uv-sync` | Instala dependências locais do backend com `uv`. |
+| `make uv-run` | Inicia a API localmente com `uv` e recarregamento automático. |
+
+### Dependências locais com uv
+
+O backend usa `pyproject.toml` e `uv.lock` como fonte de dependências. Para
+instalar exatamente as versões registradas no lockfile e iniciar a API fora do
+Docker:
+
+```bash
+make uv-sync
+make uv-run
+```
+
+Para adicionar ou atualizar dependências, execute dentro de `backend`:
+
+```bash
+uv add nome-do-pacote
+uv add --group dev nome-do-pacote-de-desenvolvimento
+uv lock
 ```
 
 ## Serviços disponíveis no estado atual
@@ -131,8 +181,8 @@ Todas as rotas abaixo usam o prefixo `/api/v1`.
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/produtos/catalogo` | Lista unidades, categorias e localizações |
-| GET | `/produtos` | Lista produtos com paginação |
-| POST | `/produtos` | Cria produto |
+| GET | `/produtos` | Lista com filtros de nome, status e preço |
+| POST | `/produtos` | Cria produto, preço e lote inicial opcional |
 | GET | `/produtos/{id}` | Consulta produto |
 | PUT | `/produtos/{id}` | Atualiza produto |
 | DELETE | `/produtos/{id}` | Realiza exclusão lógica |
@@ -144,11 +194,11 @@ Todas as rotas abaixo usam o prefixo `/api/v1`.
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/transacoes/fornecedores` | Lista fornecedores |
-| POST | `/transacoes/fornecedores` | Cria fornecedor |
-| POST | `/transacoes/entrada` | Registra entrada |
-| POST | `/transacoes/saida` | Registra saída |
+| POST | `/transacoes/fornecedores` | Cria fornecedor com contato e endereço |
+| POST | `/transacoes/entrada` | Registra entrada, tipo, data e observação |
+| POST | `/transacoes/saida` | Registra saída, validando o saldo |
 | GET | `/transacoes/estoque` | Consulta estoque atual |
-| GET | `/transacoes/historico` | Consulta histórico |
+| GET | `/transacoes/historico` | Histórico com filtros e auditoria |
 
 Com exceção de `/auth/login` e `/health`, os endpoints exigem o cabeçalho:
 
@@ -158,30 +208,35 @@ Authorization: Bearer <token>
 
 ## Banco de dados
 
-A migration atual cria as tabelas principais, as views `estoque_entrada` e
-`estoque_produto`, além do trigger `validar_saldo_saida`, que bloqueia saídas
-concorrentes acima do saldo disponível.
+As migrations criam as tabelas do SQL de referência, os campos de preço,
+perecibilidade e tipos de movimentação, além das views `estoque_entrada` e
+`estoque_produto`. O schema usa tipos PostgreSQL nativos e `CHECK constraints`;
+não depende de `DOMAINs` personalizados.
+
+Os triggers do PostgreSQL:
+
+- impedem saídas concorrentes acima do saldo disponível;
+- impedem reduzir uma entrada abaixo da quantidade já retirada;
+- preenchem a localização da entrada com a localização preferencial do produto;
+- impedem excluir registros de entrada e saída.
 
 Os arquivos SQL são referência do banco anterior; a aplicação deve criar e
 evoluir sua estrutura por migrations Alembic.
 
 ## Testes
 
-As dependências `pytest` e `pytest-asyncio` já estão declaradas, mas a suíte de
-testes ainda não foi implementada. A criação dos testes essenciais faz parte da
-fase 3.
+A suíte cria um banco PostgreSQL temporário, aplica todas as migrations e valida
+autenticação, usuários, fornecedores, produtos, filtros, movimentações,
+concorrência de saídas e imutabilidade do histórico.
 
-Quando os testes forem adicionados, o comando previsto dentro do container será:
+Com banco e backend em execução:
 
 ```bash
 docker compose exec backend pytest -q
 ```
 
-Os testes de estoque deverão usar PostgreSQL, pois o projeto depende de views,
-funções e triggers específicas desse banco.
-
 ## Próximas etapas
 
-1. Concluir e testar o backend conforme a fase 3.
-2. Criar o frontend Vue/Vuetify conforme a fase 4.
-3. Validar os três containers e revisar a documentação final.
+1. Criar o frontend Vue/Vuetify conforme a fase 4.
+2. Adicionar o Dockerfile do frontend.
+3. Validar os três containers e revisar a entrega final.

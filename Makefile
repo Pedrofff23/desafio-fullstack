@@ -74,7 +74,7 @@ backend-shell:
 	docker compose exec -it backend bash
 
 backend-test:
-	docker compose exec backend pytest
+	docker compose exec backend uv run --no-sync pytest -q
 
 uv-sync:
 	cd backend && uv sync
