@@ -30,8 +30,8 @@ async def listar(
     size: int = Query(20, ge=1, le=100),
     nome: str | None = None,
     status: str | None = None,
-    preco_min: float | None = None,
-    preco_max: float | None = None,
+    preco_min: float | None = Query(None, ge=0),
+    preco_max: float | None = Query(None, ge=0),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):

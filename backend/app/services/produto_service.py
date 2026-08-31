@@ -7,12 +7,10 @@ Responsável por montar a listagem com saldo de estoque e alertas visuais
 from datetime import date
 
 from fastapi import HTTPException
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.produto import Lote, Produto
-from app.models.transacao import RegistroEntrada
 from app.repositories.produto_repository import ProdutoRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.produto import (
@@ -27,6 +25,8 @@ from app.schemas.produto import (
 
 # Limiar em dias para considerar validade "próxima do vencimento".
 LIMIAR_VALIDADE_DIAS = 30
+LIMIAR_ESTOQUE_BAIXO = 5
+STATUS_VALIDOS = {"ok", "validade_proxima", "vencido", "estoque_baixo", "zerado"}
 
 
 class ProdutoService:
@@ -39,48 +39,31 @@ class ProdutoService:
     # ------------------------------------------------------------------
     # Montagem do DTO de listagem com alertas
     # ------------------------------------------------------------------
-    async def _enriquecer(self, produto: Produto) -> ProdutoOut:
-        quantidade = await self.repo.saldo_produto(produto.id)
-
-        # Validade mais próxima (lote ativo)
-        lotes = await self.repo.list_lotes_do_produto(produto.id)
-        data_validade = None
-        preco = None
-        for lote in lotes:
-            if data_validade is None or lote.data_validade < data_validade:
-                data_validade = lote.data_validade
-
-        # Preço sugerido mais recente (primeira entrada de um lote ativo)
-        if lotes:
-            from app.models.transacao import RegistroEntrada
-
-            ultimo_lote = lotes[0]
-            ultima_entrada = await self.session.execute(
-                select(RegistroEntrada)
-                .where(RegistroEntrada.lote_id == ultimo_lote.id)
-                .order_by(RegistroEntrada.data_entrada.desc())
-            )
-            entrada = ultima_entrada.scalar_one_or_none()
-            if entrada is not None:
-                preco = float(entrada.preco_sugerido)
-
+    def _enriquecer(
+        self,
+        produto: Produto,
+        quantidade: float = 0,
+        data_validade: date | None = None,
+    ) -> ProdutoOut:
         status = "ok"
-        if quantidade <= 0:
-            status = "zerado"
-        elif quantidade < 5:
-            status = "estoque_baixo"
         if data_validade is not None:
             dias = (data_validade - date.today()).days
             if dias < 0:
                 status = "vencido"
             elif dias < LIMIAR_VALIDADE_DIAS:
                 status = "validade_proxima"
+        if status == "ok" and quantidade <= 0:
+            status = "zerado"
+        elif status == "ok" and quantidade < LIMIAR_ESTOQUE_BAIXO:
+            status = "estoque_baixo"
 
         return ProdutoOut(
             id=produto.id,
             codigo=produto.codigo,
             nome=produto.nome,
             descricao=produto.descricao,
+            preco=float(produto.preco),
+            perecivel=produto.perecivel,
             unidade_medida_id=produto.unidade_medida_id,
             categoria_id=produto.categoria_id,
             localizacao_id=produto.localizacao_id,
@@ -96,7 +79,6 @@ class ProdutoService:
             if produto.categoria
             else None,
             quantidade_estoque=quantidade,
-            preco=preco,
             data_validade=data_validade,
             status=status,
         )
@@ -126,31 +108,31 @@ class ProdutoService:
         preco_min: float | None = None,
         preco_max: float | None = None,
     ) -> PaginatedResponse[ProdutoOut]:
-        itens, total = await self.repo.list_paginated_filtros(
-            page=page,
-            size=size,
-            nome=nome,
-            status=status,
-            preco_min=preco_min,
-            preco_max=preco_max,
+        if preco_min is not None and preco_max is not None and preco_min > preco_max:
+            raise HTTPException(status_code=422, detail="Preço mínimo maior que o máximo")
+        if status is not None and status not in STATUS_VALIDOS:
+            raise HTTPException(status_code=422, detail="Status de produto inválido")
+        itens = await self.repo.listar_filtros(
+            nome=nome, preco_min=preco_min, preco_max=preco_max
         )
-        out = [await self._enriquecer(p) for p in itens]
-        return PaginatedResponse.build(out, total, page, size)
+        estatisticas = await self.repo.estatisticas_produtos([p.id for p in itens])
+        out = [
+            self._enriquecer(p, *estatisticas.get(p.id, (0.0, None))) for p in itens
+        ]
+        if status is not None:
+            out = [produto for produto in out if produto.status == status]
+        total = len(out)
+        inicio = (page - 1) * size
+        return PaginatedResponse.build(out[inicio : inicio + size], total, page, size)
 
     async def obter(self, produto_id: int) -> ProdutoOut:
-        stmt = (
-            select(Produto)
-            .where(Produto.id == produto_id, Produto.excluido_em.is_(None))
-            .options(
-                selectinload(Produto.unidade_medida),
-                selectinload(Produto.categoria),
-            )
-        )
-        result = await self.session.execute(stmt)
-        produto = result.scalars().unique().one_or_none()
+        produto = await self.repo.get_com_relacionamentos(produto_id)
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
-        return await self._enriquecer(produto)
+        estatisticas = await self.repo.estatisticas_produtos([produto.id])
+        return self._enriquecer(
+            produto, *estatisticas.get(produto.id, (0.0, None))
+        )
 
     # ------------------------------------------------------------------
     # CRUD
@@ -158,60 +140,67 @@ class ProdutoService:
     async def criar(self, data: ProdutoCreate, funcionario_id: int) -> ProdutoOut:
         if await self.repo.get_by_codigo(data.codigo):
             raise HTTPException(status_code=409, detail="Código de produto já existe")
-        produto = Produto(
-            **data.model_dump(), funcionario_id=funcionario_id
-        )
-        produto = await self.repo.add(produto)
-        await self.session.commit()
-        
-        # Recarregar com eager loading
-        stmt = (
-            select(Produto)
-            .where(Produto.id == produto.id)
-            .options(
-                selectinload(Produto.unidade_medida),
-                selectinload(Produto.categoria),
+        if not await self.repo.validar_referencias(
+            data.unidade_medida_id, data.categoria_id, data.localizacao_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Unidade, categoria ou localização informada não existe",
             )
+        lote_inicial = data.lote_inicial
+        produto = Produto(
+            **data.model_dump(exclude={"lote_inicial"}),
+            funcionario_id=funcionario_id,
         )
-        result = await self.session.execute(stmt)
-        produto = result.scalars().unique().one()
-        return await self._enriquecer(produto)
+        try:
+            await self.repo.add(produto)
+            if lote_inicial is not None:
+                self.session.add(
+                    Lote(produto_id=produto.id, **lote_inicial.model_dump())
+                )
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=409, detail="Produto ou lote já cadastrado"
+            ) from exc
+        return await self.obter(produto.id)
 
     async def atualizar(
         self, produto_id: int, data: ProdutoUpdate
     ) -> ProdutoOut:
-        stmt = (
-            select(Produto)
-            .where(Produto.id == produto_id, Produto.excluido_em.is_(None))
-            .options(
-                selectinload(Produto.unidade_medida),
-                selectinload(Produto.categoria),
-            )
-        )
-        result = await self.session.execute(stmt)
-        produto = result.scalars().unique().one_or_none()
+        produto = await self.repo.get_com_relacionamentos(produto_id)
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
-        for k, v in data.model_dump(exclude_unset=True).items():
-            setattr(produto, k, v)
-        await self.session.commit()
-        
-        # Recarregar com eager loading
-        stmt = (
-            select(Produto)
-            .where(Produto.id == produto_id)
-            .options(
-                selectinload(Produto.unidade_medida),
-                selectinload(Produto.categoria),
+        valores = data.model_dump(exclude_unset=True)
+        codigo = valores.get("codigo")
+        if codigo is not None and codigo != produto.codigo:
+            existente = await self.repo.get_by_codigo(codigo)
+            if existente is not None:
+                raise HTTPException(status_code=409, detail="Código de produto já existe")
+        if not await self.repo.validar_referencias(
+            valores.get("unidade_medida_id", produto.unidade_medida_id),
+            valores.get("categoria_id", produto.categoria_id),
+            valores.get("localizacao_id", produto.localizacao_id),
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Unidade, categoria ou localização informada não existe",
             )
-        )
-        result = await self.session.execute(stmt)
-        produto = result.scalars().unique().one()
-        return await self._enriquecer(produto)
+        for k, v in valores.items():
+            setattr(produto, k, v)
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=409, detail="Não foi possível atualizar o produto"
+            ) from exc
+        return await self.obter(produto_id)
 
     async def excluir(self, produto_id: int, excluido_por: int | None = None) -> None:
         produto = await self.repo.get(produto_id)
-        if produto is None:
+        if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         await self.repo.soft_delete(produto_id, excluido_por)
         await self.session.commit()
@@ -223,14 +212,26 @@ class ProdutoService:
         self, produto_id: int, data: LoteCreate, excluido_por: int | None = None
     ) -> LoteOut:
         produto = await self.repo.get(produto_id)
-        if produto is None:
+        if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
+        if produto.perecivel and data.data_validade is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Produto perecível exige data de validade no lote",
+            )
         lote = Lote(produto_id=produto_id, **data.model_dump())
-        lote = await self.repo.add(lote)
-        await self.session.commit()
+        try:
+            lote = await self.repo.add(lote)
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise HTTPException(status_code=409, detail="Número de lote já cadastrado") from exc
         return LoteOut.model_validate(lote, from_attributes=True)
 
     async def listar_lotes(self, produto_id: int) -> list[LoteOut]:
+        produto = await self.repo.get(produto_id)
+        if produto is None or produto.excluido_em is not None:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
         lotes = await self.repo.list_lotes_do_produto(produto_id)
         return [
             LoteOut.model_validate(l, from_attributes=True) for l in lotes
