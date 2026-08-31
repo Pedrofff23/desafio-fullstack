@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env*.local
+*.env
+
+# Python / Backend ignores
+backend/.venv/
+backend/venv/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+
+# Vue.js / Frontend ignores (ready for when frontend is created)
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+frontend/.stylelintcache
+frontend/.vite/
+**/node_modules/
+**/dist/
+
+# Database data
+postgres_data/
+*.sqlite3
+*.db
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
