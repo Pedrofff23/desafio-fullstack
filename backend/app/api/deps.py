@@ -33,8 +33,16 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    try:
+        usuario_id = int(subject)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido",
+        ) from exc
+
     repo = UsuarioRepository(db)
-    usuario = await repo.get(int(subject))
+    usuario = await repo.get(usuario_id)
     if usuario is None or usuario.excluido_em is not None or not usuario.ativo:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

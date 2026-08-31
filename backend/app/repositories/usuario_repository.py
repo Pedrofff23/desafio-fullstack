@@ -38,3 +38,11 @@ class UsuarioRepository(BaseRepository[Usuario]):
 
     async def get_cidade(self, cidade_id: int) -> Cidade | None:
         return await self.session.get(Cidade, cidade_id)
+
+    async def cidade_pertence_ao_estado(
+        self, cidade_id: int, estado_id: int
+    ) -> bool:
+        result = await self.session.execute(
+            select(Cidade.id).where(Cidade.id == cidade_id, Cidade.uf == estado_id)
+        )
+        return result.scalar_one_or_none() is not None
