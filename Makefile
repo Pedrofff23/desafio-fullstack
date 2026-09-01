@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs ps db-shell db-check db-seed db-seed-geo db-seed-all backend-shell backend-test uv-sync uv-run
+.PHONY: help up down restart logs ps db-shell db-check db-clean db-seed db-seed-geo db-seed-all backend-shell backend-test uv-sync uv-run
 
 # Default target: show help
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "Database & Migrations:"
 	@echo "  make db-shell       - Open interactive psql shell in the database"
 	@echo "  make db-check       - Check migration status and table row counts"
+	@echo "  make db-clean       - Delete the database volume and all persisted data"
 	@echo "  make db-seed        - Seed reference data (units, categories, admin user)"
 	@echo "  make db-seed-geo    - Seed IBGE geo data (countries, states, cities)"
 	@echo "  make db-seed-all    - Run all seeds (seed_geo + init_db)"
@@ -53,13 +54,17 @@ db-shell:
 db-check:
 	@docker compose exec db psql -U estoque -d gerenciamento_estoque -c "\
 	SELECT version_num AS migration_version FROM alembic_version;\
-	SELECT 'usuarios' AS table_name, count(*) AS total_rows FROM usuarios\
-	UNION ALL SELECT 'categorias', count(*) FROM categorias\
-	UNION ALL SELECT 'unidades_medida', count(*) FROM unidades_medida\
-	UNION ALL SELECT 'produtos', count(*) FROM produtos\
-	UNION ALL SELECT 'paises', count(*) FROM paises\
-	UNION ALL SELECT 'estados', count(*) FROM estados\
+	SELECT 'usuarios' AS table_name, count(*) AS total_rows FROM usuarios \
+	UNION ALL SELECT 'categorias', count(*) FROM categorias \
+	UNION ALL SELECT 'unidades_medida', count(*) FROM unidades_medida \
+	UNION ALL SELECT 'produtos', count(*) FROM produtos \
+	UNION ALL SELECT 'paises', count(*) FROM paises \
+	UNION ALL SELECT 'estados', count(*) FROM estados \
 	UNION ALL SELECT 'cidades', count(*) FROM cidades;"
+
+db-clean:
+	@echo "WARNING: deleting the database volume and all persisted data..."
+	docker compose down --volumes --remove-orphans
 
 db-seed:
 	docker compose exec backend python -m scripts.init_db

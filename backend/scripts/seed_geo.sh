@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ============================================================
 # Seed dos dados geográficos IBGE (paises, estados, cidades).
 # Extrai apenas a seção de dados (COPY ... FROM stdin) de cada dump
