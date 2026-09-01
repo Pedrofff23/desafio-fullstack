@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ============================================================
 # Seed dos dados geográficos IBGE (paises, estados, cidades).
 # Extrai apenas a seção de dados (COPY ... FROM stdin) de cada dump
 # e a carrega via psql. As tabelas já foram criadas pela migration.
 # ============================================================
-set -u
+set -euo pipefail
 
 : "${DATABASE_URL:=postgresql+asyncpg://estoque:estoque123@db:5432/gerenciamento_estoque}"
 
@@ -21,24 +21,48 @@ SQL_DIR="${SQL_REF_DIR:-/app/sql_reference}"
 echo "=== Seed geográfico IBGE ==="
 echo "Host: $DB_HOST:$DB_PORT  DB: $DB_NAME  User: $DB_USER"
 
-for fname in pais.sql estado.sql cidade.sql; do
+for item in "pais.sql:paises" "estado.sql:estados" "cidade.sql:cidades"; do
+  fname="${item%%:*}"
+  table="${item##*:}"
   FILE="$SQL_DIR/$fname"
   if [ ! -f "$FILE" ]; then
     echo "Arquivo $fname não encontrado; pulando."
     continue
   fi
+
+  has_data="$(psql -tAc "SELECT EXISTS (SELECT 1 FROM $table LIMIT 1)" \
+    -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" | tr -d '[:space:]')"
+  if [ "$has_data" = "t" ]; then
+    echo "Tabela $table já possui dados; pulando carga."
+    continue
+  fi
+
   echo "Carregando dados de $fname..."
 
-  # Extrai blocos "COPY <tabela> (...) FROM stdin;" ... "\."
-  # e os executa via psql. Ajusta o search_path para public.
+  tmp_sql="$(mktemp)"
+  trap 'rm -f "$tmp_sql"' EXIT
+
+  # Remove CRLF antes de detectar o terminador "\." do bloco COPY.
   awk '
     BEGIN { incopy = 0 }
+    { sub(/\r$/, "", $0) }
     /^COPY / { incopy = 1; print "SET search_path TO public;" }
     incopy { print }
     /^\\\.$/ { incopy = 0 }
-  ' "$FILE" | \
-    psql -v ON_ERROR_STOP=0 -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" 2>&1 | \
-    grep -E "ERROR|COPY [0-9]+" | grep -v "already exists" || true
+  ' "$FILE" > "$tmp_sql"
+
+  psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -p "$DB_PORT" \
+    -U "$DB_USER" -d "$DB_NAME" -f "$tmp_sql"
+  rm -f "$tmp_sql"
+  trap - EXIT
+done
+
+# COPY informa IDs explicitamente e não avança as sequences SERIAL/BIGSERIAL.
+for table in paises estados cidades; do
+  psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -p "$DB_PORT" \
+    -U "$DB_USER" -d "$DB_NAME" -c \
+    "SELECT setval(pg_get_serial_sequence('$table', 'id'), COALESCE(MAX(id), 1), true) FROM $table;" \
+    >/dev/null
 done
 
 echo "=== Seed geográfico concluído ==="

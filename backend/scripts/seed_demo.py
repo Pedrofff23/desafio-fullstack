@@ -14,7 +14,7 @@ Uso (dentro do container backend ou com .venv ativo):
 
 import asyncio
 import logging
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import text
 
@@ -35,6 +35,14 @@ async def _scalar(session, stmt: str, params: dict | None = None):
     """Executa um statement e retorna o primeiro valor escalar."""
     result = await session.execute(text(stmt), params or {})
     return result.scalar()
+
+
+def _data_hora(valor: datetime | str) -> datetime:
+    if isinstance(valor, datetime):
+        return valor
+    if valor == "NOW()":
+        return datetime.now(UTC)
+    return datetime.fromisoformat(valor)
 
 
 async def _cidade_id(session, ibge: int | None = None, nome: str | None = None) -> int:
@@ -65,23 +73,25 @@ async def seed_enderecos(session) -> list[int]:
     ids = []
     for logradouro, numero, complemento, cep, bairro, ibge, nome_cidade in enderecos_data:
         cidade_id = await _cidade_id(session, ibge=ibge, nome=nome_cidade)
-        eid = await _scalar(session, """
-            INSERT INTO enderecos (logradouro, numero, complemento, cep, bairro, cidade_id)
-            VALUES (:logradouro, :numero, :complemento, :cep, :bairro, :cidade_id)
-            ON CONFLICT (logradouro, numero, complemento, cep, bairro, cidade_id) DO NOTHING
-            RETURNING id
-        """, {
+        params = {
             "logradouro": logradouro, "numero": numero, "complemento": complemento,
             "cep": cep, "bairro": bairro, "cidade_id": cidade_id,
-        })
+        }
+        eid = await _scalar(session, """
+            SELECT id FROM enderecos
+            WHERE logradouro = :logradouro AND numero = :numero
+              AND complemento IS NOT DISTINCT FROM :complemento
+              AND cep = :cep AND bairro = :bairro AND cidade_id = :cidade_id
+            LIMIT 1
+        """, params)
         if eid is None:
             eid = await _scalar(session, """
-                SELECT id FROM enderecos
-                WHERE logradouro = :logradouro AND numero = :numero
-                  AND cep = :cep AND bairro = :bairro AND cidade_id = :cidade_id
-                LIMIT 1
-            """, {"logradouro": logradouro, "numero": numero, "cep": cep,
-                  "bairro": bairro, "cidade_id": cidade_id})
+                INSERT INTO enderecos
+                    (logradouro, numero, complemento, cep, bairro, cidade_id)
+                VALUES
+                    (:logradouro, :numero, :complemento, :cep, :bairro, :cidade_id)
+                RETURNING id
+            """, params)
         ids.append(eid)
 
     logger.info("Endereços: %s", ids)
@@ -242,6 +252,7 @@ async def _inserir_lote(session, prod_id, numero_lote, dt_prod, dt_val):
 
 
 async def _inserir_entrada(session, lote_id, fornec_id, loc_id, qtd, dt_entrada, p_custo, p_sug, func_id):
+    dt_entrada = _data_hora(dt_entrada)
     eid = await _scalar(session, "SELECT id FROM registros_entrada WHERE lote_id = :lid LIMIT 1", {"lid": lote_id})
     if eid is None:
         eid = await _scalar(session, """
@@ -258,6 +269,7 @@ async def _inserir_entrada(session, lote_id, fornec_id, loc_id, qtd, dt_entrada,
 
 
 async def _inserir_saida(session, entrada_id, qtd, dt_saida, p_venda, func_id):
+    dt_saida = _data_hora(dt_saida)
     existe = await _scalar(session, """
         SELECT 1 FROM registros_saida WHERE entrada_id = :eid AND data_saida = :dt
     """, {"eid": entrada_id, "dt": dt_saida})
@@ -492,6 +504,21 @@ async def main() -> None:
         await session.flush()
 
         await seed_produtos(session, func_ids, fornec_ids)
+
+        # O preço atual pertence ao produto; os valores da entrada ficam como
+        # histórico de compra. Os dados demo possuem lotes com validade.
+        await session.execute(text("""
+            UPDATE produtos p
+               SET preco = dados.preco,
+                   perecivel = TRUE
+              FROM (
+                    SELECT l.produto_id, MAX(re.preco_sugerido) AS preco
+                      FROM lotes l
+                      JOIN registros_entrada re ON re.lote_id = l.id
+                     GROUP BY l.produto_id
+                   ) dados
+             WHERE p.id = dados.produto_id
+        """))
 
         await session.commit()
 

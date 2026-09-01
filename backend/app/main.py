@@ -1,6 +1,5 @@
 """Ponto de entrada da aplicação FastAPI."""
 
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,9 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router
 from app.core.config import settings
-
-logger = logging.getLogger("estoque.startup")
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,12 +24,8 @@ async def lifespan(app: FastAPI):
 
         import asyncio
 
-        try:
-            # Rodar alembic em thread separada (usa seu próprio event loop/engine)
-            await asyncio.to_thread(_run_migrations)
-            logger.info("Migrações Alembic aplicadas automaticamente")
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Falha ao aplicar migrações automaticamente: %s", e)
+        # Falha de migration impede a API de iniciar sobre um schema incompleto.
+        await asyncio.to_thread(_run_migrations)
 
     yield
     await db_manager.close()

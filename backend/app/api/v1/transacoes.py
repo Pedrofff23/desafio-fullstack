@@ -12,6 +12,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
     FornecedorCreate,
     FornecedorOut,
+    EstoqueProdutoOut,
     MovimentoOut,
     RegistroEntradaCreate,
     RegistroEntradaOut,
@@ -73,7 +74,7 @@ async def registrar_saida(
 # Estoque atual e histórico
 # ---------------------------------------------------------------------------
 
-@router.get("/estoque", response_model=PaginatedResponse[dict])
+@router.get("/estoque", response_model=PaginatedResponse[EstoqueProdutoOut])
 async def estoque_atual(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -90,6 +91,7 @@ async def historico(
     produto_id: int | None = None,
     tipo: str | None = None,
     funcionario_id: int | None = None,
+    quantidade: float | None = Query(None, gt=0),
     data_inicio: datetime | None = None,
     data_fim: datetime | None = None,
     db: AsyncSession = Depends(get_db),
@@ -101,6 +103,7 @@ async def historico(
         produto_id=produto_id,
         tipo=tipo,
         funcionario_id=funcionario_id,
+        quantidade=quantidade,
         data_inicio=data_inicio,
         data_fim=data_fim,
     )

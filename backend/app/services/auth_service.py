@@ -17,7 +17,9 @@ class AuthService:
         self.repo = UsuarioRepository(session)
 
     async def login(self, payload: LoginRequest) -> TokenResponse:
-        usuario = await self.repo.get_by_email_including_inactive(payload.email)
+        usuario = await self.repo.get_by_email_including_inactive(
+            str(payload.email).strip().lower()
+        )
         if usuario is None:
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
         if not usuario.ativo or usuario.excluido_em is not None:

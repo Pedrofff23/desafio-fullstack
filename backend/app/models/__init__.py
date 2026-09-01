@@ -13,8 +13,11 @@ from app.models.produto import (
     Ingrediente,
     LocalizacaoEstoque,
     Lote,
+    Nutriente,
     Prateleira,
     Produto,
+    ProdutoAlergeno,
+    ProdutoIngrediente,
     Seccao,
     UnidadeMedida,
 )
@@ -42,6 +45,9 @@ __all__ = [
     "LocalizacaoEstoque",
     "Produto",
     "Lote",
+    "Nutriente",
+    "ProdutoIngrediente",
+    "ProdutoAlergeno",
     "RegistroEntrada",
     "RegistroSaida",
 ]

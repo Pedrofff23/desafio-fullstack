@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,9 +63,13 @@ class UsuarioService:
     # Validações de FK
     # ------------------------------------------------------------------
     async def _validar_endereco(self, endereco: EnderecoIn) -> None:
-        cidade = await self.repo.get_cidade(endereco.cidade_id)
-        if cidade is None:
-            raise HTTPException(status_code=400, detail="Cidade informada não existe")
+        if not await self.repo.cidade_pertence_ao_estado(
+            endereco.cidade_id, endereco.estado_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="A cidade informada não pertence ao estado selecionado",
+            )
 
     async def _validar_email_unico(self, email: str, ignorar_id: int | None = None) -> None:
         existente = await self.repo.get_by_email_including_inactive(email)
@@ -87,14 +92,20 @@ class UsuarioService:
                 selectinload(Usuario.funcionario)
                 .selectinload(Funcionario.contato),
             )
-            .order_by(Usuario.id)
-            .offset((page - 1) * size)
-            .limit(size)
         )
+        total_stmt = select(func.count(Usuario.id)).where(Usuario.excluido_em.is_(None))
+        if nome:
+            termo = f"%{nome.strip()}%"
+            stmt = stmt.join(Usuario.funcionario).where(
+                Funcionario.nome_completo.ilike(termo)
+            )
+            total_stmt = total_stmt.join(Usuario.funcionario).where(
+                Funcionario.nome_completo.ilike(termo)
+            )
+        stmt = stmt.order_by(Usuario.id).offset((page - 1) * size).limit(size)
         result = await self.session.execute(stmt)
         itens = list(result.scalars().unique().all())
 
-        total_stmt = select(func.count(Usuario.id)).where(Usuario.excluido_em.is_(None))
         total = await self.session.execute(total_stmt)
         total = int(total.scalar() or 0)
 
@@ -102,9 +113,15 @@ class UsuarioService:
         return PaginatedResponse.build(out, total, page, size)
 
     async def obter(self, usuario_id: int) -> UsuarioOut:
+        usuario = await self._carregar_model(usuario_id)
+        if usuario is None or usuario.excluido_em is not None:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        return self._to_out(usuario)
+
+    async def _carregar_model(self, usuario_id: int) -> Usuario | None:
         stmt = (
             select(Usuario)
-            .where(Usuario.id == usuario_id, Usuario.excluido_em.is_(None))
+            .where(Usuario.id == usuario_id)
             .options(
                 selectinload(Usuario.funcionario)
                 .selectinload(Funcionario.endereco)
@@ -114,10 +131,7 @@ class UsuarioService:
             )
         )
         result = await self.session.execute(stmt)
-        usuario = result.scalars().unique().one_or_none()
-        if usuario is None:
-            raise HTTPException(status_code=404, detail="Usuário não encontrado")
-        return self._to_out(usuario)
+        return result.scalars().unique().one_or_none()
 
     # ------------------------------------------------------------------
     # Criação (transacional)
@@ -151,8 +165,15 @@ class UsuarioService:
         )
 
         self.session.add(usuario)
-        await self.session.flush()
-        await self.session.commit()
+        try:
+            await self.session.flush()
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="E-mail, contato ou endereço já cadastrado",
+            ) from exc
         
         # Recarregar com eager loading dos relacionamentos
         stmt = (
@@ -176,7 +197,7 @@ class UsuarioService:
     async def atualizar(
         self, usuario_id: int, data: UsuarioUpdate, atualizado_por: int | None = None
     ) -> UsuarioOut:
-        usuario = await self.repo.get(usuario_id)
+        usuario = await self._carregar_model(usuario_id)
         if usuario is None or usuario.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
@@ -209,7 +230,14 @@ class UsuarioService:
             for k, v in vals.items():
                 setattr(endereco, k, v)
 
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="E-mail, contato ou endereço já cadastrado",
+            ) from exc
 
         # Recarregar com eager loading dos relacionamentos
         stmt = (
@@ -231,8 +259,8 @@ class UsuarioService:
     # Exclusão (soft delete em cascata)
     # ------------------------------------------------------------------
     async def excluir(self, usuario_id: int, excluido_por: int | None = None) -> None:
-        usuario = await self.repo.get(usuario_id)
-        if usuario is None:
+        usuario = await self._carregar_model(usuario_id)
+        if usuario is None or usuario.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
         agora = datetime.now(UTC)
         usuario.excluido_em = agora

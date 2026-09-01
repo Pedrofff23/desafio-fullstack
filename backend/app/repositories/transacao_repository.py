@@ -4,7 +4,9 @@ from datetime import datetime
 
 from sqlalchemy import func, literal, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.models.localidade import Endereco
 from app.models.produto import Lote, Produto
 from app.models.transacao import Fornecedor, RegistroEntrada, RegistroSaida
 from app.repositories.base import BaseRepository
@@ -45,12 +47,27 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         result = await self.session.execute(
             select(Fornecedor)
             .where(Fornecedor.excluido_em.is_(None))
+            .options(
+                selectinload(Fornecedor.contato),
+                selectinload(Fornecedor.endereco).selectinload(Endereco.cidade),
+            )
             .order_by(Fornecedor.nome_empresa)
         )
         return list(result.scalars().all())
 
     async def get_fornecedor(self, fornecedor_id: int) -> Fornecedor | None:
-        return await self.session.get(Fornecedor, fornecedor_id)
+        result = await self.session.execute(
+            select(Fornecedor)
+            .where(
+                Fornecedor.id == fornecedor_id,
+                Fornecedor.excluido_em.is_(None),
+            )
+            .options(
+                selectinload(Fornecedor.contato),
+                selectinload(Fornecedor.endereco).selectinload(Endereco.cidade),
+            )
+        )
+        return result.scalars().unique().one_or_none()
 
     async def add_fornecedor(self, fornecedor: Fornecedor) -> Fornecedor:
         self.session.add(fornecedor)
@@ -92,13 +109,22 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         rows = await self.session.execute(
             text(
                 """
-                SELECT produto_id, SUM(quantidade) AS qtd
-                FROM estoque_produto
-                GROUP BY produto_id
+                SELECT p.id, p.nome, COALESCE(e.qtd, 0) AS qtd
+                FROM produtos p
+                LEFT JOIN (
+                    SELECT produto_id, SUM(quantidade) AS qtd
+                    FROM estoque_produto
+                    GROUP BY produto_id
+                ) e ON e.produto_id = p.id
+                WHERE p.excluido_em IS NULL
+                ORDER BY p.nome, p.id
                 """
             )
         )
-        return [{"produto_id": r[0], "quantidade": float(r[1])} for r in rows.fetchall()]
+        return [
+            {"produto_id": r[0], "produto_nome": r[1], "quantidade": float(r[2])}
+            for r in rows.fetchall()
+        ]
 
     # ------------------------------------------------------------------
     # Histórico (auditoria) — unifica entradas e saídas em uma lista
@@ -111,28 +137,33 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         produto_id: int | None = None,
         tipo: str | None = None,
         funcionario_id: int | None = None,
+        quantidade: float | None = None,
         data_inicio: datetime | None = None,
         data_fim: datetime | None = None,
     ) -> tuple[list[dict], int]:
         entradas = select(
             RegistroEntrada.id.label("id"),
             literal("entrada").label("tipo"),
+            RegistroEntrada.tipo_entrada.label("tipo_movimento"),
             Lote.produto_id.label("produto_id"),
             RegistroEntrada.lote_id.label("lote_id"),
             RegistroEntrada.quantidade.label("quantidade"),
             RegistroEntrada.data_entrada.label("data_movimento"),
             RegistroEntrada.preco_sugerido.label("preco"),
+            RegistroEntrada.observacao.label("observacao"),
             RegistroEntrada.funcionario_id.label("funcionario_id"),
         ).join(Lote, Lote.id == RegistroEntrada.lote_id)
 
         saidas = select(
             RegistroSaida.id.label("id"),
             literal("saida").label("tipo"),
+            RegistroSaida.tipo_saida.label("tipo_movimento"),
             Lote.produto_id.label("produto_id"),
             Entrada.lote_id.label("lote_id"),
             RegistroSaida.quantidade.label("quantidade"),
             RegistroSaida.data_saida.label("data_movimento"),
             RegistroSaida.preco_venda.label("preco"),
+            literal(None).label("observacao"),
             RegistroSaida.funcionario_id.label("funcionario_id"),
         ).join(
             Entrada,
@@ -156,6 +187,9 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         if funcionario_id is not None:
             base = base.where(unidos.c.funcionario_id == funcionario_id)
             count = count.where(unidos.c.funcionario_id == funcionario_id)
+        if quantidade is not None:
+            base = base.where(unidos.c.quantidade == quantidade)
+            count = count.where(unidos.c.quantidade == quantidade)
         if data_inicio is not None:
             base = base.where(unidos.c.data_movimento >= data_inicio)
             count = count.where(unidos.c.data_movimento >= data_inicio)

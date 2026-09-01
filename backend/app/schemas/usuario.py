@@ -115,6 +115,11 @@ class UsuarioCreate(BaseModel):
     contato: ContatoIn
     endereco: EnderecoIn
 
+    @field_validator("email")
+    @classmethod
+    def _normalizar_email(cls, valor: EmailStr) -> str:
+        return str(valor).strip().lower()
+
 
 class UsuarioUpdate(BaseModel):
     """Edição de usuário (nome, e-mail, contato e endereço)."""
@@ -126,3 +131,8 @@ class UsuarioUpdate(BaseModel):
     ativo: bool | None = None
     contato: ContatoIn | None = None
     endereco: EnderecoIn | None = None
+
+    @field_validator("email")
+    @classmethod
+    def _normalizar_email(cls, valor: EmailStr | None) -> str | None:
+        return str(valor).strip().lower() if valor is not None else None
