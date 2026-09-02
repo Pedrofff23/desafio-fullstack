@@ -5,6 +5,7 @@ Responsável por montar a listagem com saldo de estoque e alertas visuais
 """
 
 from datetime import date
+from typing import cast
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -117,7 +118,14 @@ class ProdutoService:
         )
         estatisticas = await self.repo.estatisticas_produtos([p.id for p in itens])
         out = [
-            self._enriquecer(p, *estatisticas.get(p.id, (0.0, None))) for p in itens
+            self._enriquecer(
+                p,
+                *cast(
+                    tuple[float, date | None],
+                    estatisticas.get(p.id, (0.0, None)),
+                ),
+            )
+            for p in itens
         ]
         if status is not None:
             out = [produto for produto in out if produto.status == status]
@@ -130,8 +138,11 @@ class ProdutoService:
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         estatisticas = await self.repo.estatisticas_produtos([produto.id])
+        quantidade, data_validade = cast(
+            tuple[float, date | None], estatisticas.get(produto.id, (0.0, None))
+        )
         return self._enriquecer(
-            produto, *estatisticas.get(produto.id, (0.0, None))
+            produto, quantidade, data_validade
         )
 
     # ------------------------------------------------------------------
@@ -221,7 +232,7 @@ class ProdutoService:
             )
         lote = Lote(produto_id=produto_id, **data.model_dump())
         try:
-            lote = await self.repo.add(lote)
+            self.session.add(lote)
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
