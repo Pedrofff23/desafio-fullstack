@@ -146,12 +146,21 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
                 "data_producao": str(date.today()),
                 "data_validade": str(validade),
             },
+            "nutrientes": [{"nome": "Proteínas", "unidade": "g", "valor": 3.2}],
+            "ingredientes": [
+                {"ingrediente_id": test_database["ingrediente_id"], "ordem": 1}
+            ],
+            "alergeno_ids": [test_database["alergeno_id"]],
         },
     )
     assert produto.status_code == 201, produto.text
     produto_id = produto.json()["id"]
     assert produto.json()["preco"] == 19.9
     assert produto.json()["status"] == "zerado"
+    assert "data_validade" not in produto.json()
+    assert produto.json()["nutrientes"][0]["nome"] == "Proteínas"
+    assert produto.json()["ingredientes"][0]["nome"] == "Leite"
+    assert produto.json()["alergenos"][0]["nome"] == "Lactose"
 
     lotes = await client.get(
         f"/api/v1/produtos/{produto_id}/lotes", headers=auth_headers
@@ -168,11 +177,19 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
             "tipo_entrada": "compra",
             "observacao": "Entrada do teste",
             "preco_custo": 10,
-            "preco_sugerido": 19.9,
         },
     )
     assert entrada.status_code == 201, entrada.text
     entrada_id = entrada.json()["id"]
+    assert "preco_sugerido" not in entrada.json()
+
+    lotes = await client.get(
+        f"/api/v1/produtos/{produto_id}/lotes", headers=auth_headers
+    )
+    lote_com_estoque = lotes.json()[0]
+    assert lote_com_estoque["quantidade_estoque"] == 10
+    assert lote_com_estoque["status_validade"] == "validade_proxima"
+    assert lote_com_estoque["localizacoes"][0]["corredor"] == "A"
 
     entradas_disponiveis = await client.get(
         "/api/v1/transacoes/entradas-disponiveis",
@@ -223,7 +240,7 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
         "/api/v1/produtos",
         params={
             "nome": "Integração",
-            "status": "validade_proxima",
+            "status": "estoque_baixo",
             "preco_min": 19,
             "preco_max": 20,
         },

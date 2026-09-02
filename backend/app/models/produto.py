@@ -73,6 +73,8 @@ class Corredor(Base):
     nome: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     descricao: Mapped[str | None] = mapped_column(String(100))
 
+    seccoes: Mapped[list["Seccao"]] = relationship(back_populates="corredor")
+
 
 class Seccao(Base):
     __tablename__ = "seccoes"
@@ -85,6 +87,9 @@ class Seccao(Base):
     )
     nome: Mapped[str] = mapped_column(String(50), nullable=False)
     descricao: Mapped[str | None] = mapped_column(String(100))
+
+    corredor: Mapped["Corredor"] = relationship(back_populates="seccoes")
+    prateleiras: Mapped[list["Prateleira"]] = relationship(back_populates="seccao")
 
     __table_args__ = (UniqueConstraint("corredor_id", "nome"),)
 
@@ -102,6 +107,11 @@ class Prateleira(Base):
     nivel: Mapped[int | None] = mapped_column(SmallInteger)
     descricao: Mapped[str | None] = mapped_column(String(100))
 
+    seccao: Mapped["Seccao"] = relationship(back_populates="prateleiras")
+    localizacao: Mapped["LocalizacaoEstoque | None"] = relationship(
+        back_populates="prateleira", uselist=False
+    )
+
     __table_args__ = (UniqueConstraint("seccao_id", "nome"),)
 
 
@@ -112,6 +122,8 @@ class LocalizacaoEstoque(Base):
     prateleira_id: Mapped[int] = mapped_column(
         SmallInteger, ForeignKey("prateleiras.id"), unique=True, nullable=False
     )
+
+    prateleira: Mapped["Prateleira"] = relationship(back_populates="localizacao")
 
 
 class Produto(Base):
@@ -150,6 +162,22 @@ class Produto(Base):
     categoria: Mapped["Categoria"] = relationship()
     localizacao: Mapped["LocalizacaoEstoque"] = relationship()
     lotes: Mapped[list["Lote"]] = relationship(back_populates="produto")
+    nutrientes: Mapped[list["Nutriente"]] = relationship(
+        back_populates="produto",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    ingredientes_associacoes: Mapped[list["ProdutoIngrediente"]] = relationship(
+        back_populates="produto",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ProdutoIngrediente.ordem",
+    )
+    alergenos_associacoes: Mapped[list["ProdutoAlergeno"]] = relationship(
+        back_populates="produto",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     __table_args__ = (Index("idx_produto_categoria", "categoria_id"),)
 
@@ -185,6 +213,8 @@ class Nutriente(Base):
     unidade: Mapped[str] = mapped_column(String(10), nullable=False)
     valor: Mapped[float] = mapped_column(Numeric(10, 3), nullable=False)
 
+    produto: Mapped["Produto"] = relationship(back_populates="nutrientes")
+
     __table_args__ = (UniqueConstraint("produto_id", "nome"),)
 
 
@@ -199,6 +229,9 @@ class ProdutoIngrediente(Base):
     )
     ordem: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
+    produto: Mapped["Produto"] = relationship(back_populates="ingredientes_associacoes")
+    ingrediente: Mapped["Ingrediente"] = relationship()
+
     __table_args__ = (UniqueConstraint("produto_id", "ordem"),)
 
 
@@ -211,3 +244,6 @@ class ProdutoAlergeno(Base):
     alergeno_id: Mapped[int] = mapped_column(
         SmallInteger, ForeignKey("alergenos.id"), primary_key=True
     )
+
+    produto: Mapped["Produto"] = relationship(back_populates="alergenos_associacoes")
+    alergeno: Mapped["Alergeno"] = relationship()

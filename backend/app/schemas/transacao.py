@@ -50,7 +50,6 @@ class RegistroEntradaCreate(BaseModel):
     tipo_entrada: str = Field("compra", min_length=1, max_length=50)
     observacao: str | None = Field(None, max_length=500)
     preco_custo: float = Field(..., ge=0)
-    preco_sugerido: float = Field(..., ge=0)
 
 
 class RegistroEntradaOut(BaseModel):
@@ -63,7 +62,6 @@ class RegistroEntradaOut(BaseModel):
     tipo_entrada: str
     observacao: str | None
     preco_custo: float
-    preco_sugerido: float
     funcionario_id: int
 
     model_config = {"from_attributes": True}

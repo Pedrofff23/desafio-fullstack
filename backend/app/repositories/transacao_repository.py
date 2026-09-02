@@ -183,7 +183,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             RegistroEntrada.lote_id.label("lote_id"),
             RegistroEntrada.quantidade.label("quantidade"),
             RegistroEntrada.data_entrada.label("data_movimento"),
-            RegistroEntrada.preco_sugerido.label("preco"),
+            RegistroEntrada.preco_custo.label("preco"),
             RegistroEntrada.observacao.label("observacao"),
             RegistroEntrada.funcionario_id.label("funcionario_id"),
         ).join(Lote, Lote.id == RegistroEntrada.lote_id)
