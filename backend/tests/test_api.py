@@ -27,6 +27,13 @@ async def test_autenticacao_e_usuario_atual(
 async def test_usuario_comum_pode_criar_e_filtrar_usuario(
     client: AsyncClient, auth_headers: dict[str, str], test_database: dict
 ):
+    cidades = await client.get(
+        f"/api/v1/geo/estados/{test_database['estado_id']}/cidades",
+        headers=auth_headers,
+    )
+    assert cidades.status_code == 200, cidades.text
+    assert cidades.json()[0]["estado_id"] == test_database["estado_id"]
+
     payload = {
         "nome": "Maria Integração",
         "email": "MARIA@TESTE.COM",
@@ -46,6 +53,10 @@ async def test_usuario_comum_pode_criar_e_filtrar_usuario(
     response = await client.post("/api/v1/usuarios", json=payload, headers=auth_headers)
     assert response.status_code == 201, response.text
     assert response.json()["email"] == "maria@teste.com"
+    assert (
+        response.json()["funcionario"]["endereco"]["cidade"]["estado_id"]
+        == test_database["estado_id"]
+    )
     usuario_id = response.json()["id"]
 
     response = await client.get(
@@ -165,6 +176,23 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
     assert entrada.status_code == 201, entrada.text
     entrada_id = entrada.json()["id"]
 
+    entradas_disponiveis = await client.get(
+        "/api/v1/transacoes/entradas-disponiveis",
+        params={"produto_id": produto_id},
+        headers=auth_headers,
+    )
+    assert entradas_disponiveis.status_code == 200, entradas_disponiveis.text
+    assert entradas_disponiveis.json() == [
+        {
+            "entrada_id": entrada_id,
+            "lote_id": lote_id,
+            "produto_id": produto_id,
+            "fornecedor_id": fornecedor_id,
+            "localizacao_id": test_database["localizacao_id"],
+            "quantidade": 10.0,
+        }
+    ]
+
     async def retirar():
         return await client.post(
             "/api/v1/transacoes/saida",
@@ -185,6 +213,13 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
         item for item in estoque.json()["items"] if item["produto_id"] == produto_id
     )
     assert linha["quantidade"] == 3
+
+    entradas_disponiveis = await client.get(
+        "/api/v1/transacoes/entradas-disponiveis",
+        params={"produto_id": produto_id},
+        headers=auth_headers,
+    )
+    assert entradas_disponiveis.json()[0]["quantidade"] == 3.0
 
     filtrados = await client.get(
         "/api/v1/produtos",

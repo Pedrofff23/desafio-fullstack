@@ -27,6 +27,7 @@ from app.repositories.transacao_repository import TransacaoRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
+    EstoqueEntradaOut,
     FornecedorCreate,
     FornecedorOut,
     MovimentoOut,
@@ -164,6 +165,12 @@ class TransacaoService:
     # ------------------------------------------------------------------
     # Estoque atual
     # ------------------------------------------------------------------
+    async def entradas_disponiveis(
+        self, produto_id: int | None = None
+    ) -> list[EstoqueEntradaOut]:
+        linhas = await self.repo.entradas_disponiveis(produto_id=produto_id)
+        return [EstoqueEntradaOut.model_validate(linha) for linha in linhas]
+
     async def estoque_atual(self, page: int = 1, size: int = 20) -> PaginatedResponse[dict]:
         linhas = await self.repo.estoque_atual_por_produto()
         total = len(linhas)

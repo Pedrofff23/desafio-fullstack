@@ -14,9 +14,7 @@ class LocalidadeService:
 
     async def listar_estados(self) -> list[EstadoOut]:
         estados = await self.repo.list_estados()
-        return [
-            EstadoOut(id=e.id, nome=e.nome, uf=e.uf, ibge=e.ibge) for e in estados
-        ]
+        return [EstadoOut(id=e.id, nome=e.nome, uf=e.uf, ibge=e.ibge) for e in estados]
 
     async def listar_cidades_do_estado(self, estado_id: int) -> list[CidadeOut]:
         estado = await self.repo.get_estado(estado_id)
@@ -24,5 +22,6 @@ class LocalidadeService:
             raise HTTPException(status_code=404, detail="Estado não encontrado")
         cidades = await self.repo.list_cidades_por_estado(estado_id)
         return [
-            CidadeOut(id=c.id, nome=c.nome, ibge=c.ibge) for c in cidades
+            CidadeOut(id=c.id, nome=c.nome, ibge=c.ibge, estado_id=c.uf)
+            for c in cidades
         ]
