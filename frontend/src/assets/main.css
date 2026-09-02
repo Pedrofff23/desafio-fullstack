@@ -1,0 +1,32 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, Roboto, Arial, sans-serif;
+}
+
+html {
+  overflow-y: auto;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f4f7f5;
+}
+
+.data-card {
+  border: 1px solid #e2e9e5;
+}
+
+.table-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
