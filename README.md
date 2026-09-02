@@ -3,15 +3,6 @@
 Aplicação full stack, para gerenciamento de
 usuários, produtos alimentícios e movimentações de estoque.
 
-O plano reconstruído do projeto está em `PLANO_DE_CONCLUSAO.md`.
-
-## Estado atual
-
-- Backend, migrations e seeds concluídos.
-- Frontend Vue/Vuetify com autenticação, usuários, produtos, lotes,
-  fornecedores, estoque e movimentações concluído.
-- Banco, backend e frontend containerizados separadamente.
-
 ## Stack definida
 
 | Camada | Tecnologia |
@@ -38,9 +29,7 @@ O Docker Compose inicia três serviços independentes:
 Navegador → frontend (Nginx, porta 8080) → backend (FastAPI, porta 8000) → db (PostgreSQL, porta 5432)
 ```
 
-O Nginx entrega a SPA (Single Page Application) e encaminha chamadas iniciadas por `/api/` ao backend. Por
-isso, as rotas do Vue continuam acessíveis mesmo após atualizar diretamente a
-página no navegador.
+O Nginx entrega a SPA (Single Page Application) e encaminha chamadas iniciadas por `/api/` ao backend. Por isso, as rotas do Vue continuam acessíveis mesmo após atualizar diretamente a página no navegador.
 
 ### Pré-requisitos
 

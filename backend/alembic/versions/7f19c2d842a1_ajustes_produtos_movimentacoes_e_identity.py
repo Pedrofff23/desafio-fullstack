@@ -1,4 +1,4 @@
-"""corrigir requisitos da fase 3
+"""ajustes em produtos, movimentacoes e identity
 
 Revision ID: 7f19c2d842a1
 Revises: 3c3c56834314
