@@ -1,13 +1,9 @@
 """Schemas genéricos reutilizáveis: paginação e respostas de mensagem."""
 
-from typing import Generic, TypeVar
-
 from pydantic import BaseModel, Field
 
-T = TypeVar("T")
 
-
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse[T](BaseModel):
     """Resposta paginada genérica."""
 
     items: list[T]

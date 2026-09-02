@@ -100,9 +100,9 @@ def _serial_to_identity() -> None:
 
 def _identity_to_serial() -> None:
     tipos = {
-        **{tabela: "integer" for tabela in IDENTITY_SMALLINT},
-        **{tabela: "integer" for tabela in IDENTITY_INTEGER},
-        **{tabela: "bigint" for tabela in IDENTITY_BIGINT},
+        **dict.fromkeys(IDENTITY_SMALLINT, "integer"),
+        **dict.fromkeys(IDENTITY_INTEGER, "integer"),
+        **dict.fromkeys(IDENTITY_BIGINT, "bigint"),
     }
     for tabela in reversed(IDENTITY_TABLES):
         tipo = tipos[tabela]

@@ -4,18 +4,14 @@ Fornece operações CRUD comuns e suporte a exclusão lógica (soft delete),
 quando o modelo expõe as colunas de auditoria `excluido_em`/`excluido_por`.
 """
 
-from typing import Generic, TypeVar
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
 from app.models.base import Base
 
-ModelT = TypeVar("ModelT", bound=Base)
 
-
-class BaseRepository(Generic[ModelT]):
+class BaseRepository[ModelT: Base]:
     """Operações genéricas sobre um modelo ORM."""
 
     def __init__(self, model: type[ModelT], session: AsyncSession) -> None:

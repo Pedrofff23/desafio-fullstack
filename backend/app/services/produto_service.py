@@ -248,4 +248,4 @@ class ProdutoService:
         if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         lotes = await self.repo.list_lotes_do_produto(produto_id)
-        return [LoteOut.model_validate(l, from_attributes=True) for l in lotes]
+        return [LoteOut.model_validate(lote, from_attributes=True) for lote in lotes]

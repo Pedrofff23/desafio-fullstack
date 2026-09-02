@@ -463,7 +463,7 @@ async def seed_produtos(session, func_ids: list[int], fornec_ids: list[int]) -> 
     # PROD001–PROD008
     # ------------------------------------------------------------------
     p = {}  # prod_ids
-    l = {}  # lote_ids
+    lote_map = {}  # lote_ids
     e = {}  # entrada_ids
 
     dados = [
@@ -549,7 +549,7 @@ async def seed_produtos(session, func_ids: list[int], fornec_ids: list[int]) -> 
         ("LOTE2024005A", "PROD008", date(2024, 3, 15), date(2024, 6, 15)),
     ]
     for num, prod_cod, dp, dv in lotes_base:
-        l[num] = await _inserir_lote(session, p[prod_cod], num, dp, dv)
+        lote_map[num] = await _inserir_lote(session, p[prod_cod], num, dp, dv)
 
     async def loc_do_lote(num):
         return await _scalar(
@@ -559,7 +559,7 @@ async def seed_produtos(session, func_ids: list[int], fornec_ids: list[int]) -> 
             JOIN produtos p ON p.id = l2.produto_id
             WHERE l2.id = :lid
         """,
-            {"lid": l[num]},
+            {"lid": lote_map[num]},
         )
 
     entradas_base = [
@@ -575,7 +575,15 @@ async def seed_produtos(session, func_ids: list[int], fornec_ids: list[int]) -> 
     ]
     for num, fi, qtd, dt, pc, ps, fni in entradas_base:
         e[num] = await _inserir_entrada(
-            session, l[num], f[fi], await loc_do_lote(num), qtd, dt, pc, ps, fn[fni]
+            session,
+            lote_map[num],
+            f[fi],
+            await loc_do_lote(num),
+            qtd,
+            dt,
+            pc,
+            ps,
+            fn[fni],
         )
 
     saidas_base = [
@@ -712,7 +720,7 @@ async def seed_produtos(session, func_ids: list[int], fornec_ids: list[int]) -> 
         ("LOTE2024010A", "PROD018", date(2024, 3, 10), date(2025, 3, 10)),
     ]
     for num, prod_cod, dp, dv in lotes_extra:
-        l[num] = await _inserir_lote(session, p[prod_cod], num, dp, dv)
+        lote_map[num] = await _inserir_lote(session, p[prod_cod], num, dp, dv)
 
     entradas_extra = [
         ("LOTE2024006A", 3, 40, "2024-03-18 09:30:00-03", 18.50, 26.90, 0),
@@ -728,7 +736,15 @@ async def seed_produtos(session, func_ids: list[int], fornec_ids: list[int]) -> 
     ]
     for num, fi, qtd, dt, pc, ps, fni in entradas_extra:
         e[num] = await _inserir_entrada(
-            session, l[num], f[fi], await loc_do_lote(num), qtd, dt, pc, ps, fn[fni]
+            session,
+            lote_map[num],
+            f[fi],
+            await loc_do_lote(num),
+            qtd,
+            dt,
+            pc,
+            ps,
+            fn[fni],
         )
 
     saidas_extra = [
@@ -820,10 +836,10 @@ async def seed_produtos(session, func_ids: list[int], fornec_ids: list[int]) -> 
     ) in lotes_dinamicos:
         dp = hoje - timedelta(days=dias_p)
         dv = hoje + timedelta(days=dias_v)
-        l[num] = await _inserir_lote(session, p[prod_cod], num, dp, dv)
+        lote_map[num] = await _inserir_lote(session, p[prod_cod], num, dp, dv)
         loc_id = await loc_do_lote(num)
         e[num] = await _inserir_entrada(
-            session, l[num], f[fi], loc_id, qtd_ent, "NOW()", pc, ps, fn[fni]
+            session, lote_map[num], f[fi], loc_id, qtd_ent, "NOW()", pc, ps, fn[fni]
         )
 
         existe = await _scalar(
