@@ -6,7 +6,7 @@ o frontend seleciona o estado e, em seguida, a cidade correspondente).
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.schemas.localidade import CidadeOut, EstadoOut
+from app.schemas.localidade import CidadeOut
 
 
 class ContatoBase(BaseModel):

@@ -15,9 +15,8 @@ class UsuarioRepository(BaseRepository[Usuario]):
         super().__init__(Usuario, session)
 
     async def get_by_email(self, email: str) -> Usuario | None:
-        stmt = (
-            select(Usuario)
-            .where(Usuario.email == email, Usuario.excluido_em.is_(None))
+        stmt = select(Usuario).where(
+            Usuario.email == email, Usuario.excluido_em.is_(None)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -39,9 +38,7 @@ class UsuarioRepository(BaseRepository[Usuario]):
     async def get_cidade(self, cidade_id: int) -> Cidade | None:
         return await self.session.get(Cidade, cidade_id)
 
-    async def cidade_pertence_ao_estado(
-        self, cidade_id: int, estado_id: int
-    ) -> bool:
+    async def cidade_pertence_ao_estado(self, cidade_id: int, estado_id: int) -> bool:
         result = await self.session.execute(
             select(Cidade.id).where(Cidade.id == cidade_id, Cidade.uf == estado_id)
         )

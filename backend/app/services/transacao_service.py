@@ -22,7 +22,7 @@ from app.models.transacao import (
     RegistroEntrada,
     RegistroSaida,
 )
-from app.models.usuario import Funcionario, Usuario
+from app.models.usuario import Usuario
 from app.repositories.transacao_repository import TransacaoRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.common import PaginatedResponse
@@ -57,12 +57,8 @@ class TransacaoService:
                 status_code=400,
                 detail="A cidade informada não pertence ao estado selecionado",
             )
-        endereco = Endereco(
-            **data.endereco.model_dump(exclude={"estado_id"})
-        )
-        contato = Contato(
-            **data.contato.model_dump()
-        )
+        endereco = Endereco(**data.endereco.model_dump(exclude={"estado_id"}))
+        contato = Contato(**data.contato.model_dump())
         fornecedor = Fornecedor(
             nome_empresa=data.nome_empresa,
             contato=contato,
@@ -84,8 +80,7 @@ class TransacaoService:
     async def listar_fornecedores(self) -> list[FornecedorOut]:
         fornecedores = await self.repo.list_fornecedores()
         return [
-            FornecedorOut.model_validate(f, from_attributes=True)
-            for f in fornecedores
+            FornecedorOut.model_validate(f, from_attributes=True) for f in fornecedores
         ]
 
     # ------------------------------------------------------------------
@@ -171,7 +166,9 @@ class TransacaoService:
         linhas = await self.repo.entradas_disponiveis(produto_id=produto_id)
         return [EstoqueEntradaOut.model_validate(linha) for linha in linhas]
 
-    async def estoque_atual(self, page: int = 1, size: int = 20) -> PaginatedResponse[dict]:
+    async def estoque_atual(
+        self, page: int = 1, size: int = 20
+    ) -> PaginatedResponse[dict]:
         linhas = await self.repo.estoque_atual_por_produto()
         total = len(linhas)
         inicio = (page - 1) * size
@@ -217,8 +214,9 @@ class TransacaoService:
         emails_func: dict[int, str] = {}
         if func_ids:
             rows = await self.session.execute(
-                select(Usuario.funcionario_id, Usuario.email)
-                .where(Usuario.funcionario_id.in_(func_ids))
+                select(Usuario.funcionario_id, Usuario.email).where(
+                    Usuario.funcionario_id.in_(func_ids)
+                )
             )
             emails_func = {row[0]: row[1] for row in rows}
 
@@ -228,14 +226,20 @@ class TransacaoService:
                 tipo=r["tipo"],
                 tipo_movimento=r["tipo_movimento"],
                 produto_id=r.get("produto_id"),
-                produto_nome=nomes_produto.get(r["produto_id"]) if r.get("produto_id") else None,
+                produto_nome=(
+                    nomes_produto.get(r["produto_id"]) if r.get("produto_id") else None
+                ),
                 lote_id=r.get("lote_id"),
                 quantidade=float(r["quantidade"]),
                 data_movimento=r["data_movimento"],
                 preco=float(r["preco"]) if r.get("preco") is not None else None,
                 observacao=r.get("observacao"),
                 funcionario_id=r.get("funcionario_id"),
-                responsavel_email=emails_func.get(r["funcionario_id"]) if r.get("funcionario_id") else None,
+                responsavel_email=(
+                    emails_func.get(r["funcionario_id"])
+                    if r.get("funcionario_id")
+                    else None
+                ),
             )
             for r in linhas
         ]

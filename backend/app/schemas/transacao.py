@@ -7,10 +7,10 @@ from pydantic import BaseModel, Field
 
 from app.schemas.usuario import ContatoIn, ContatoOut, EnderecoIn, EnderecoOut
 
-
 # ---------------------------------------------------------------------------
 # Fornecedores
 # ---------------------------------------------------------------------------
+
 
 class FornecedorCreate(BaseModel):
     """Cadastro de fornecedor."""
@@ -35,6 +35,7 @@ class FornecedorOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Entradas
 # ---------------------------------------------------------------------------
+
 
 class RegistroEntradaCreate(BaseModel):
     """Registro de entrada de estoque (associada a um lote)."""
@@ -72,6 +73,7 @@ class RegistroEntradaOut(BaseModel):
 # Saídas
 # ---------------------------------------------------------------------------
 
+
 class RegistroSaidaCreate(BaseModel):
     """Saída de estoque (vinculada a uma entrada com saldo disponível)."""
 
@@ -97,6 +99,7 @@ class RegistroSaidaOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Histórico e saldos
 # ---------------------------------------------------------------------------
+
 
 class MovimentoOut(BaseModel):
     """Linha do histórico de transações (auditoria: quem, quando, o quê)."""

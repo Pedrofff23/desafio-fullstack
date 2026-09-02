@@ -11,9 +11,9 @@ from app.models.usuario import Usuario
 from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
     EstoqueEntradaOut,
+    EstoqueProdutoOut,
     FornecedorCreate,
     FornecedorOut,
-    EstoqueProdutoOut,
     MovimentoOut,
     RegistroEntradaCreate,
     RegistroEntradaOut,
@@ -28,6 +28,7 @@ router = APIRouter(prefix="/transacoes", tags=["Transações de Estoque"])
 # ---------------------------------------------------------------------------
 # Fornecedores
 # ---------------------------------------------------------------------------
+
 
 @router.get("/fornecedores", response_model=list[FornecedorOut])
 async def listar_fornecedores(
@@ -48,6 +49,7 @@ async def criar_fornecedor(
 # ---------------------------------------------------------------------------
 # Entrada / Saída
 # ---------------------------------------------------------------------------
+
 
 @router.post("/entrada", response_model=RegistroEntradaOut, status_code=201)
 async def registrar_entrada(
@@ -74,6 +76,7 @@ async def registrar_saida(
 # ---------------------------------------------------------------------------
 # Estoque atual e histórico
 # ---------------------------------------------------------------------------
+
 
 @router.get("/entradas-disponiveis", response_model=list[EstoqueEntradaOut])
 async def entradas_disponiveis(

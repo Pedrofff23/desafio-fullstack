@@ -9,7 +9,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Banco de dados
-    DATABASE_URL: str = "postgresql+asyncpg://estoque:estoque123@db:5432/gerenciamento_estoque"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://estoque:estoque123@db:5432/gerenciamento_estoque"
+    )
 
     # Segurança / JWT
     SECRET_KEY: str = "change-me"

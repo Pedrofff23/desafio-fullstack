@@ -1,6 +1,6 @@
 """DTOs do módulo de produtos, lotes e catálogo."""
 
-from datetime import date, datetime
+from datetime import date
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -106,8 +106,6 @@ class ProdutoOut(BaseModel):
 
 class LoteCreate(LoteInput):
     """Criação de lote (validade é propriedade do lote)."""
-
-    pass
 
 
 class LoteOut(BaseModel):

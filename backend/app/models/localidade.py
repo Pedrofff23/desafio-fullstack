@@ -5,8 +5,8 @@ base para o endereço dos usuários/funcionários.
 """
 
 from sqlalchemy import (
-    BigInteger,
     CHAR,
+    BigInteger,
     ForeignKey,
     Identity,
     Index,
@@ -58,9 +58,7 @@ class Cidade(Base):
     uf: Mapped[int | None] = mapped_column(Integer, ForeignKey("estados.id"))
     ibge: Mapped[int | None] = mapped_column(Integer)
     lat_lon: Mapped[object | None] = mapped_column(PG_POINT)
-    cod_tom: Mapped[int | None] = mapped_column(
-        SmallInteger, server_default=text("0")
-    )
+    cod_tom: Mapped[int | None] = mapped_column(SmallInteger, server_default=text("0"))
 
     estado: Mapped["Estado | None"] = relationship(back_populates="cidades")
 
@@ -68,9 +66,7 @@ class Cidade(Base):
 class Endereco(Base):
     __tablename__ = "enderecos"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     logradouro: Mapped[str] = mapped_column(String(150), nullable=False)
     numero: Mapped[str] = mapped_column(String(20), nullable=False)
     complemento: Mapped[str | None] = mapped_column(String(100))
@@ -93,15 +89,11 @@ class Endereco(Base):
 class Contato(Base):
     __tablename__ = "contatos"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     codigo_pais: Mapped[str] = mapped_column(
         String(4), server_default=text("'+55'"), nullable=False
     )
     ddd: Mapped[str] = mapped_column(CHAR(2), nullable=False)
     numero: Mapped[str] = mapped_column(String(15), nullable=False)
 
-    __table_args__ = (
-        UniqueConstraint("codigo_pais", "ddd", "numero"),
-    )
+    __table_args__ = (UniqueConstraint("codigo_pais", "ddd", "numero"),)

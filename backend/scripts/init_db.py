@@ -80,29 +80,37 @@ async def seed_referencia(session) -> None:
 
 async def seed_localizacoes(session) -> None:
     """Cria localizações de estoque (corredor/seção/prateleira) básicas."""
-    await session.execute(text("""
+    await session.execute(
+        text("""
         INSERT INTO corredores (nome, descricao) VALUES
             ('A', 'Alimentos'), ('B', 'Bebidas'), ('C', 'Frios')
         ON CONFLICT (nome) DO NOTHING
-    """))
-    await session.execute(text("""
+    """)
+    )
+    await session.execute(
+        text("""
         INSERT INTO seccoes (corredor_id, nome, descricao)
         SELECT id, 'Seção ' || nome, 'Seção principal do corredor ' || nome
         FROM corredores
         ON CONFLICT (corredor_id, nome) DO NOTHING
-    """))
-    await session.execute(text("""
+    """)
+    )
+    await session.execute(
+        text("""
         INSERT INTO prateleiras (seccao_id, nome, nivel)
         SELECT s.id, 'Prateleira ' || niveis.nivel, niveis.nivel
         FROM seccoes s
         CROSS JOIN (VALUES (1), (2)) AS niveis(nivel)
         ON CONFLICT (seccao_id, nome) DO NOTHING
-    """))
-    await session.execute(text("""
+    """)
+    )
+    await session.execute(
+        text("""
         INSERT INTO localizacoes_estoque (prateleira_id)
         SELECT id FROM prateleiras
         ON CONFLICT (prateleira_id) DO NOTHING
-    """))
+    """)
+    )
     logger.info("Localizações de estoque criadas.")
 
 

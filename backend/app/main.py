@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router
 from app.core.config import settings
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.core.database import db_manager
@@ -15,9 +16,11 @@ async def lifespan(app: FastAPI):
     db_manager.init()
 
     if settings.AUTO_MIGRATE:
+
         def _run_migrations() -> None:
-            from alembic import command
             from alembic.config import Config
+
+            from alembic import command
 
             cfg = Config("alembic.ini")
             command.upgrade(cfg, "head")

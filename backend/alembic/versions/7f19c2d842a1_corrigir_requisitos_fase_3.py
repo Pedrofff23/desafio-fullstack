@@ -4,16 +4,16 @@ Revision ID: 7f19c2d842a1
 Revises: 3c3c56834314
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "7f19c2d842a1"
-down_revision: Union[str, None] = "3c3c56834314"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "3c3c56834314"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 IDENTITY_SMALLINT = [
@@ -86,8 +86,7 @@ def _serial_to_identity() -> None:
         op.execute(f"ALTER TABLE {tabela} ALTER COLUMN id DROP DEFAULT")
         op.execute(f"DROP SEQUENCE IF EXISTS {tabela}_id_seq")
         op.execute(
-            f"ALTER TABLE {tabela} ALTER COLUMN id "
-            "ADD GENERATED ALWAYS AS IDENTITY"
+            f"ALTER TABLE {tabela} ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY"
         )
         op.execute(f"""
             SELECT setval(
@@ -137,7 +136,9 @@ def upgrade() -> None:
 
     op.add_column(
         "registros_entrada",
-        sa.Column("tipo_entrada", sa.String(50), nullable=False, server_default="compra"),
+        sa.Column(
+            "tipo_entrada", sa.String(50), nullable=False, server_default="compra"
+        ),
     )
     op.add_column("registros_entrada", sa.Column("observacao", sa.Text()))
     op.add_column(
@@ -270,7 +271,9 @@ def upgrade() -> None:
 
     op.execute("ALTER TABLE estados ALTER COLUMN pais TYPE integer USING pais::integer")
     op.execute("ALTER TABLE cidades ALTER COLUMN uf TYPE integer USING uf::integer")
-    op.execute("ALTER TABLE cidades ALTER COLUMN lat_lon TYPE point USING lat_lon::point")
+    op.execute(
+        "ALTER TABLE cidades ALTER COLUMN lat_lon TYPE point USING lat_lon::point"
+    )
     op.execute(
         "ALTER TABLE cidades ALTER COLUMN cod_tom TYPE smallint USING cod_tom::smallint"
     )
@@ -308,10 +311,26 @@ def upgrade() -> None:
 
     for nome, tabela, condicao in [
         ("ck_unidades_medida_sigla", "unidades_medida", "sigla = lower(btrim(sigla))"),
-        ("ck_produtos_codigo_formato", "produtos", "codigo = btrim(codigo) AND codigo <> ''"),
-        ("ck_lotes_numero_lote_formato", "lotes", "numero_lote = btrim(numero_lote) AND numero_lote <> ''"),
-        ("ck_funcionarios_nome_formato", "funcionarios", "nome_completo = btrim(nome_completo) AND nome_completo <> ''"),
-        ("ck_fornecedores_nome_formato", "fornecedores", "nome_empresa = btrim(nome_empresa) AND nome_empresa <> ''"),
+        (
+            "ck_produtos_codigo_formato",
+            "produtos",
+            "codigo = btrim(codigo) AND codigo <> ''",
+        ),
+        (
+            "ck_lotes_numero_lote_formato",
+            "lotes",
+            "numero_lote = btrim(numero_lote) AND numero_lote <> ''",
+        ),
+        (
+            "ck_funcionarios_nome_formato",
+            "funcionarios",
+            "nome_completo = btrim(nome_completo) AND nome_completo <> ''",
+        ),
+        (
+            "ck_fornecedores_nome_formato",
+            "fornecedores",
+            "nome_empresa = btrim(nome_empresa) AND nome_empresa <> ''",
+        ),
         ("ck_produtos_nome_formato", "produtos", "nome = btrim(nome) AND nome <> ''"),
         ("ck_usuarios_senha_hash_tamanho", "usuarios", "length(senha_hash) >= 20"),
         ("ck_contatos_ddd", "contatos", "ddd ~ '^[0-9]{2}$'"),
@@ -350,8 +369,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     _identity_to_serial()
     op.execute(
-        "DROP TRIGGER IF EXISTS trg_preencher_localizacao_entrada "
-        "ON registros_entrada"
+        "DROP TRIGGER IF EXISTS trg_preencher_localizacao_entrada ON registros_entrada"
     )
     op.execute("DROP FUNCTION IF EXISTS preencher_localizacao_entrada()")
     for tabela, constraint in [
@@ -403,17 +421,19 @@ def downgrade() -> None:
     op.execute(
         "ALTER TABLE cidades ALTER COLUMN cod_tom TYPE integer USING cod_tom::integer"
     )
-    op.execute(
-        "ALTER TABLE cidades ALTER COLUMN lat_lon TYPE text USING lat_lon::text"
-    )
+    op.execute("ALTER TABLE cidades ALTER COLUMN lat_lon TYPE text USING lat_lon::text")
     op.execute("ALTER TABLE cidades ALTER COLUMN uf TYPE bigint USING uf::bigint")
     op.execute("ALTER TABLE estados ALTER COLUMN pais TYPE bigint USING pais::bigint")
     _create_foreign_keys(GEO_FKS + CATALOG_FKS)
 
     op.execute("DROP TRIGGER IF EXISTS trg_impedir_exclusao_saida ON registros_saida")
-    op.execute("DROP TRIGGER IF EXISTS trg_impedir_exclusao_entrada ON registros_entrada")
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_impedir_exclusao_entrada ON registros_entrada"
+    )
     op.execute("DROP FUNCTION IF EXISTS impedir_exclusao_movimentacao()")
-    op.execute("DROP TRIGGER IF EXISTS trg_validar_quantidade_entrada ON registros_entrada")
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_validar_quantidade_entrada ON registros_entrada"
+    )
     op.execute("DROP FUNCTION IF EXISTS validar_quantidade_entrada()")
 
     checks = [

@@ -59,9 +59,7 @@ class Alergeno(Base):
 class Ingrediente(Base):
     __tablename__ = "ingredientes"
 
-    id: Mapped[int] = mapped_column(
-        Integer, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
     nome: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     descricao: Mapped[str | None] = mapped_column(String(200))
 
@@ -110,9 +108,7 @@ class Prateleira(Base):
 class LocalizacaoEstoque(Base):
     __tablename__ = "localizacoes_estoque"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     prateleira_id: Mapped[int] = mapped_column(
         SmallInteger, ForeignKey("prateleiras.id"), unique=True, nullable=False
     )
@@ -121,9 +117,7 @@ class LocalizacaoEstoque(Base):
 class Produto(Base):
     __tablename__ = "produtos"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     codigo: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     nome: Mapped[str] = mapped_column(String(150), nullable=False)
     descricao: Mapped[str | None] = mapped_column(Text)
@@ -148,9 +142,7 @@ class Produto(Base):
     funcionario_id: Mapped[int] = mapped_column(
         ForeignKey("funcionarios.id"), nullable=False
     )
-    ativo: Mapped[bool] = mapped_column(
-        Boolean, server_default=true(), nullable=False
-    )
+    ativo: Mapped[bool] = mapped_column(Boolean, server_default=true(), nullable=False)
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     excluido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
@@ -165,16 +157,12 @@ class Produto(Base):
 class Lote(Base):
     __tablename__ = "lotes"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False)
     numero_lote: Mapped[str] = mapped_column(String(50), nullable=False)
     data_producao: Mapped[date] = mapped_column(Date, nullable=False)
     data_validade: Mapped[date | None] = mapped_column(Date)
-    ativo: Mapped[bool] = mapped_column(
-        Boolean, server_default=true(), nullable=False
-    )
+    ativo: Mapped[bool] = mapped_column(Boolean, server_default=true(), nullable=False)
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     excluido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
@@ -189,9 +177,7 @@ class Lote(Base):
 class Nutriente(Base):
     __tablename__ = "nutrientes"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     produto_id: Mapped[int] = mapped_column(
         ForeignKey("produtos.id", ondelete="CASCADE"), nullable=False
     )

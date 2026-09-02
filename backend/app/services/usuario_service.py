@@ -7,13 +7,13 @@ atomicidade entre as tabelas `enderecos`, `contatos`, `funcionarios` e `usuarios
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.security import hash_password
-from app.models.localidade import Cidade, Endereco
+from app.models.localidade import Endereco
 from app.models.usuario import Funcionario, Usuario
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.common import PaginatedResponse
@@ -71,7 +71,9 @@ class UsuarioService:
                 detail="A cidade informada não pertence ao estado selecionado",
             )
 
-    async def _validar_email_unico(self, email: str, ignorar_id: int | None = None) -> None:
+    async def _validar_email_unico(
+        self, email: str, ignorar_id: int | None = None
+    ) -> None:
         existente = await self.repo.get_by_email_including_inactive(email)
         if existente is not None and (ignorar_id is None or existente.id != ignorar_id):
             raise HTTPException(status_code=409, detail="E-mail já cadastrado")
@@ -89,8 +91,7 @@ class UsuarioService:
                 selectinload(Usuario.funcionario)
                 .selectinload(Funcionario.endereco)
                 .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.contato),
+                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
             )
         )
         total_stmt = select(func.count(Usuario.id)).where(Usuario.excluido_em.is_(None))
@@ -126,8 +127,7 @@ class UsuarioService:
                 selectinload(Usuario.funcionario)
                 .selectinload(Funcionario.endereco)
                 .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.contato),
+                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
             )
         )
         result = await self.session.execute(stmt)
@@ -136,7 +136,9 @@ class UsuarioService:
     # ------------------------------------------------------------------
     # Criação (transacional)
     # ------------------------------------------------------------------
-    async def criar(self, data: UsuarioCreate, criado_por: int | None = None) -> UsuarioOut:
+    async def criar(
+        self, data: UsuarioCreate, criado_por: int | None = None
+    ) -> UsuarioOut:
         await self._validar_email_unico(data.email)
         await self._validar_endereco(data.endereco)
 
@@ -174,7 +176,7 @@ class UsuarioService:
                 status_code=409,
                 detail="E-mail, contato ou endereço já cadastrado",
             ) from exc
-        
+
         # Recarregar com eager loading dos relacionamentos
         stmt = (
             select(Usuario)
@@ -183,8 +185,7 @@ class UsuarioService:
                 selectinload(Usuario.funcionario)
                 .selectinload(Funcionario.endereco)
                 .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.contato),
+                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
             )
         )
         result = await self.session.execute(stmt)
@@ -247,8 +248,7 @@ class UsuarioService:
                 selectinload(Usuario.funcionario)
                 .selectinload(Funcionario.endereco)
                 .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.contato),
+                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
             )
         )
         result = await self.session.execute(stmt)

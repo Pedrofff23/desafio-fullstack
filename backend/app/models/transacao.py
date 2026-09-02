@@ -20,24 +20,20 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 from app.models.localidade import Contato, Endereco
-from app.models.produto import Lote, LocalizacaoEstoque
+from app.models.produto import LocalizacaoEstoque, Lote
 
 
 class Fornecedor(Base):
     __tablename__ = "fornecedores"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     nome_empresa: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
     contato_id: Mapped[int] = mapped_column(ForeignKey("contatos.id"), nullable=False)
     endereco_id: Mapped[int] = mapped_column(ForeignKey("enderecos.id"), nullable=False)
     data_cadastro: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    ativo: Mapped[bool] = mapped_column(
-        Boolean, server_default=true(), nullable=False
-    )
+    ativo: Mapped[bool] = mapped_column(Boolean, server_default=true(), nullable=False)
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     excluido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
@@ -48,9 +44,7 @@ class Fornecedor(Base):
 class RegistroEntrada(Base):
     __tablename__ = "registros_entrada"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     lote_id: Mapped[int] = mapped_column(ForeignKey("lotes.id"), nullable=False)
     fornecedor_id: Mapped[int] = mapped_column(
         ForeignKey("fornecedores.id"), nullable=False
@@ -67,9 +61,7 @@ class RegistroEntrada(Base):
     )
     observacao: Mapped[str | None] = mapped_column(Text)
     preco_custo: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    preco_sugerido: Mapped[float] = mapped_column(
-        Numeric(12, 2), nullable=False
-    )
+    preco_sugerido: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     funcionario_id: Mapped[int] = mapped_column(
         ForeignKey("funcionarios.id"), nullable=False
     )
@@ -90,9 +82,7 @@ class RegistroEntrada(Base):
 class RegistroSaida(Base):
     __tablename__ = "registros_saida"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     entrada_id: Mapped[int] = mapped_column(
         ForeignKey("registros_entrada.id"), nullable=False
     )
@@ -103,9 +93,7 @@ class RegistroSaida(Base):
     tipo_saida: Mapped[str] = mapped_column(
         String(50), server_default="venda", nullable=False
     )
-    preco_venda: Mapped[float] = mapped_column(
-        Numeric(12, 2), nullable=False
-    )
+    preco_venda: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     funcionario_id: Mapped[int] = mapped_column(
         ForeignKey("funcionarios.id"), nullable=False
     )

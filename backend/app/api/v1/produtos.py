@@ -52,7 +52,9 @@ async def criar(
     current: Usuario = Depends(get_current_user),
 ):
     # O funcionário responsável é derivado do usuário autenticado.
-    return await ProdutoService(db).criar(payload, funcionario_id=current.funcionario_id)
+    return await ProdutoService(db).criar(
+        payload, funcionario_id=current.funcionario_id
+    )
 
 
 @router.get("/{produto_id}", response_model=ProdutoOut)
@@ -85,6 +87,7 @@ async def excluir(
 # ---------------------------------------------------------------------------
 # Lotes
 # ---------------------------------------------------------------------------
+
 
 @router.get("/{produto_id}/lotes", response_model=list[LoteOut])
 async def listar_lotes(

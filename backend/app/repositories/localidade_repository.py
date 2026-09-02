@@ -22,9 +22,7 @@ class LocalidadeRepository(BaseRepository[Estado]):
 
     async def list_cidades_por_estado(self, estado_id: int) -> list[Cidade]:
         result = await self.session.execute(
-            select(Cidade)
-            .where(Cidade.uf == estado_id)
-            .order_by(Cidade.nome)
+            select(Cidade).where(Cidade.uf == estado_id).order_by(Cidade.nome)
         )
         return list(result.scalars().all())
 

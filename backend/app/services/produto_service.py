@@ -69,16 +69,18 @@ class ProdutoService:
             categoria_id=produto.categoria_id,
             localizacao_id=produto.localizacao_id,
             ativo=produto.ativo,
-            unidade_medida=UnidadeMedidaOut.model_validate(
-                produto.unidade_medida, from_attributes=True
-            )
-            if produto.unidade_medida
-            else None,
-            categoria=CategoriaOut.model_validate(
-                produto.categoria, from_attributes=True
-            )
-            if produto.categoria
-            else None,
+            unidade_medida=(
+                UnidadeMedidaOut.model_validate(
+                    produto.unidade_medida, from_attributes=True
+                )
+                if produto.unidade_medida
+                else None
+            ),
+            categoria=(
+                CategoriaOut.model_validate(produto.categoria, from_attributes=True)
+                if produto.categoria
+                else None
+            ),
             quantidade_estoque=quantidade,
             data_validade=data_validade,
             status=status,
@@ -110,7 +112,9 @@ class ProdutoService:
         preco_max: float | None = None,
     ) -> PaginatedResponse[ProdutoOut]:
         if preco_min is not None and preco_max is not None and preco_min > preco_max:
-            raise HTTPException(status_code=422, detail="Preço mínimo maior que o máximo")
+            raise HTTPException(
+                status_code=422, detail="Preço mínimo maior que o máximo"
+            )
         if status is not None and status not in STATUS_VALIDOS:
             raise HTTPException(status_code=422, detail="Status de produto inválido")
         itens = await self.repo.listar_filtros(
@@ -141,9 +145,7 @@ class ProdutoService:
         quantidade, data_validade = cast(
             tuple[float, date | None], estatisticas.get(produto.id, (0.0, None))
         )
-        return self._enriquecer(
-            produto, quantidade, data_validade
-        )
+        return self._enriquecer(produto, quantidade, data_validade)
 
     # ------------------------------------------------------------------
     # CRUD
@@ -177,9 +179,7 @@ class ProdutoService:
             ) from exc
         return await self.obter(produto.id)
 
-    async def atualizar(
-        self, produto_id: int, data: ProdutoUpdate
-    ) -> ProdutoOut:
+    async def atualizar(self, produto_id: int, data: ProdutoUpdate) -> ProdutoOut:
         produto = await self.repo.get_com_relacionamentos(produto_id)
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
@@ -188,7 +188,9 @@ class ProdutoService:
         if codigo is not None and codigo != produto.codigo:
             existente = await self.repo.get_by_codigo(codigo)
             if existente is not None:
-                raise HTTPException(status_code=409, detail="Código de produto já existe")
+                raise HTTPException(
+                    status_code=409, detail="Código de produto já existe"
+                )
         if not await self.repo.validar_referencias(
             valores.get("unidade_medida_id", produto.unidade_medida_id),
             valores.get("categoria_id", produto.categoria_id),
@@ -236,7 +238,9 @@ class ProdutoService:
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
-            raise HTTPException(status_code=409, detail="Número de lote já cadastrado") from exc
+            raise HTTPException(
+                status_code=409, detail="Número de lote já cadastrado"
+            ) from exc
         return LoteOut.model_validate(lote, from_attributes=True)
 
     async def listar_lotes(self, produto_id: int) -> list[LoteOut]:
@@ -244,6 +248,4 @@ class ProdutoService:
         if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         lotes = await self.repo.list_lotes_do_produto(produto_id)
-        return [
-            LoteOut.model_validate(l, from_attributes=True) for l in lotes
-        ]
+        return [LoteOut.model_validate(l, from_attributes=True) for l in lotes]

@@ -38,14 +38,12 @@ class BaseRepository(Generic[ModelT]):
     def _active_stmt(self) -> Select:
         stmt = select(self.model)
         if hasattr(self.model, "excluido_em"):
-            stmt = stmt.where(getattr(self.model, "excluido_em").is_(None))
+            stmt = stmt.where(self.model.excluido_em.is_(None))
         return stmt
 
     async def list_all(self, *, exclude_deleted: bool = True) -> list[ModelT]:
         stmt = self._active_stmt() if exclude_deleted else select(self.model)
-        result = await self.session.execute(
-            stmt.order_by(getattr(self.model, "id"))
-        )
+        result = await self.session.execute(stmt.order_by(self.model.id))
         return list(result.scalars().all())
 
     async def list_paginated(
@@ -75,7 +73,7 @@ class BaseRepository(Generic[ModelT]):
         if order_by is not None:
             base = base.order_by(order_by)
         else:
-            base = base.order_by(getattr(self.model, "id"))
+            base = base.order_by(self.model.id)
 
         base = base.offset((page - 1) * size).limit(size)
         result = await self.session.execute(base)
@@ -95,17 +93,19 @@ class BaseRepository(Generic[ModelT]):
             await self.session.delete(obj)
             await self.session.flush()
 
-    async def soft_delete(self, id: int, deleted_by: int | None = None) -> ModelT | None:
+    async def soft_delete(
+        self, id: int, deleted_by: int | None = None
+    ) -> ModelT | None:
         """Marca como excluído se o modelo suportar soft delete."""
         obj = await self.get(id)
         if obj is None:
             return None
         if hasattr(obj, "excluido_em"):
-            from datetime import datetime, UTC
+            from datetime import UTC, datetime
 
-            setattr(obj, "excluido_em", datetime.now(UTC))
+            obj.excluido_em = datetime.now(UTC)
             if deleted_by is not None and hasattr(obj, "excluido_por"):
-                setattr(obj, "excluido_por", deleted_by)
+                obj.excluido_por = deleted_by
             await self.session.flush()
         else:
             await self.session.delete(obj)

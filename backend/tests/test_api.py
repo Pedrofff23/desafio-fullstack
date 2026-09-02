@@ -83,9 +83,7 @@ async def test_usuario_comum_pode_criar_e_filtrar_usuario(
         f"/api/v1/usuarios/{usuario_id}", headers=auth_headers
     )
     assert response.status_code == 200
-    response = await client.get(
-        f"/api/v1/usuarios/{usuario_id}", headers=auth_headers
-    )
+    response = await client.get(f"/api/v1/usuarios/{usuario_id}", headers=auth_headers)
     assert response.status_code == 404
 
 
@@ -262,7 +260,5 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
         f"/api/v1/produtos/{produto_id}", headers=auth_headers
     )
     assert excluido.status_code == 200
-    detalhe = await client.get(
-        f"/api/v1/produtos/{produto_id}", headers=auth_headers
-    )
+    detalhe = await client.get(f"/api/v1/produtos/{produto_id}", headers=auth_headers)
     assert detalhe.status_code == 404

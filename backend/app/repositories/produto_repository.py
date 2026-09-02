@@ -82,9 +82,7 @@ class ProdutoRepository(BaseRepository[Produto]):
         """Lista produtos com filtros de nome, status e intervalo de preço."""
 
         base = select(Produto).where(Produto.excluido_em.is_(None))
-        count_stmt = select(func.count(Produto.id)).where(
-            Produto.excluido_em.is_(None)
-        )
+        count_stmt = select(func.count(Produto.id)).where(Produto.excluido_em.is_(None))
 
         if nome:
             like = f"%{nome.lower()}%"
@@ -127,7 +125,9 @@ class ProdutoRepository(BaseRepository[Produto]):
         return items, total
 
     async def list_unidades(self) -> list[UnidadeMedida]:
-        result = await self.session.execute(select(UnidadeMedida).order_by(UnidadeMedida.sigla))
+        result = await self.session.execute(
+            select(UnidadeMedida).order_by(UnidadeMedida.sigla)
+        )
         return list(result.scalars().all())
 
     async def list_categorias(self) -> list[Categoria]:

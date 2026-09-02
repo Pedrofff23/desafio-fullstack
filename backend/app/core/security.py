@@ -29,7 +29,9 @@ def create_access_token(subject: str | int, expires_minutes: int | None = None) 
 def decode_access_token(token: str) -> str | None:
     """Retorna o subject (id do usuário) ou None se inválido/expirado."""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
         return payload.get("sub")
     except JWTError:
         return None

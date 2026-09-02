@@ -3,13 +3,13 @@ import os
 from collections.abc import AsyncGenerator
 
 import pytest_asyncio
-from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from alembic import command
 from app.core.config import settings
 from app.core.database import db_manager
 from app.core.security import hash_password
@@ -60,16 +60,25 @@ async def test_database() -> AsyncGenerator[dict, None]:
         categoria = Categoria(nome="Alimentos", descricao="Produtos alimentícios")
         corredor = Corredor(nome="A", descricao="Principal")
         seccao = Seccao(nome="Seção A", descricao="Principal")
-        session.add_all([pais, estado, outro_estado, cidade, outra_cidade, unidade, categoria, corredor])
+        session.add_all(
+            [
+                pais,
+                estado,
+                outro_estado,
+                cidade,
+                outra_cidade,
+                unidade,
+                categoria,
+                corredor,
+            ]
+        )
         await session.flush()
 
         if seccao.id is None:
             seccao.corredor_id = corredor.id
             session.add(seccao)
             await session.flush()
-        prateleira = Prateleira(
-            seccao_id=seccao.id, nome="Prateleira 1", nivel=1
-        )
+        prateleira = Prateleira(seccao_id=seccao.id, nome="Prateleira 1", nivel=1)
         session.add(prateleira)
         await session.flush()
         localizacao = LocalizacaoEstoque(prateleira_id=prateleira.id)

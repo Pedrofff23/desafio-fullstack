@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.localidade import Endereco
-from app.models.produto import Lote, Produto
+from app.models.produto import Lote
 from app.models.transacao import Fornecedor, RegistroEntrada, RegistroSaida
 from app.repositories.base import BaseRepository
 
@@ -103,9 +103,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         )
         return float(row.scalar() or 0)
 
-    async def entradas_disponiveis(
-        self, produto_id: int | None = None
-    ) -> list[dict]:
+    async def entradas_disponiveis(self, produto_id: int | None = None) -> list[dict]:
         """Lista entradas que ainda possuem saldo para uma futura saída."""
 
         filtro_produto = (
@@ -190,23 +188,27 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             RegistroEntrada.funcionario_id.label("funcionario_id"),
         ).join(Lote, Lote.id == RegistroEntrada.lote_id)
 
-        saidas = select(
-            RegistroSaida.id.label("id"),
-            literal("saida").label("tipo"),
-            RegistroSaida.tipo_saida.label("tipo_movimento"),
-            Lote.produto_id.label("produto_id"),
-            Entrada.lote_id.label("lote_id"),
-            RegistroSaida.quantidade.label("quantidade"),
-            RegistroSaida.data_saida.label("data_movimento"),
-            RegistroSaida.preco_venda.label("preco"),
-            literal(None).label("observacao"),
-            RegistroSaida.funcionario_id.label("funcionario_id"),
-        ).join(
-            Entrada,
-            Entrada.id == RegistroSaida.entrada_id,
-        ).join(
-            Lote,
-            Lote.id == Entrada.lote_id,
+        saidas = (
+            select(
+                RegistroSaida.id.label("id"),
+                literal("saida").label("tipo"),
+                RegistroSaida.tipo_saida.label("tipo_movimento"),
+                Lote.produto_id.label("produto_id"),
+                Entrada.lote_id.label("lote_id"),
+                RegistroSaida.quantidade.label("quantidade"),
+                RegistroSaida.data_saida.label("data_movimento"),
+                RegistroSaida.preco_venda.label("preco"),
+                literal(None).label("observacao"),
+                RegistroSaida.funcionario_id.label("funcionario_id"),
+            )
+            .join(
+                Entrada,
+                Entrada.id == RegistroSaida.entrada_id,
+            )
+            .join(
+                Lote,
+                Lote.id == Entrada.lote_id,
+            )
         )
 
         unidos = union_all(entradas, saidas).subquery()

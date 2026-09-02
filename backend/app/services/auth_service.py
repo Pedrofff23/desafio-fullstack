@@ -1,7 +1,5 @@
 """Service de autenticação: login e emissão de JWT."""
 
-from datetime import UTC, datetime, timedelta
-
 from fastapi import HTTPException
 
 from app.core.config import settings
