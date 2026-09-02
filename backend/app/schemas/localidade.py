@@ -1,6 +1,6 @@
 """DTOs de localidades (IBGE): estados e cidades."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EstadoOut(BaseModel):
@@ -20,5 +20,6 @@ class CidadeOut(BaseModel):
     id: int
     nome: str | None
     ibge: int | None
+    estado_id: int | None = Field(validation_alias="uf")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}

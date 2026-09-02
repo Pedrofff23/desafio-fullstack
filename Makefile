@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs ps db-shell db-check db-clean db-seed db-seed-geo db-seed-all backend-shell backend-test uv-sync uv-run
+.PHONY: help up build down restart logs ps db-shell db-check db-clean db-seed db-seed-geo db-seed-all backend-shell backend-test uv-sync uv-run frontend-install frontend-dev frontend-test frontend-build
 
 # Default target: show help
 help:
@@ -6,7 +6,7 @@ help:
 	@echo "Commands available for Desafio Fullstack"
 	@echo "=============================================================================="
 	@echo "Docker Lifecycle:"
-	@echo "  make up             - Start containers (db and backend) in background"
+	@echo "  make up             - Start all containers in background"
 	@echo "  make build          - Build and start containers"
 	@echo "  make down           - Stop all containers"
 	@echo "  make restart        - Restart containers"
@@ -26,14 +26,20 @@ help:
 	@echo "  make backend-test   - Run pytest inside backend container"
 	@echo "  make uv-sync        - Run uv sync locally in backend directory"
 	@echo "  make uv-run         - Run FastAPI locally with uv and hot reload"
+	@echo ""
+	@echo "Frontend (Local):"
+	@echo "  make frontend-install - Install frontend dependencies with npm"
+	@echo "  make frontend-dev     - Start the Vite development server"
+	@echo "  make frontend-test    - Run frontend type-check, lint, and unit tests"
+	@echo "  make frontend-build   - Create the frontend production build"
 	@echo "=============================================================================="
 
 # --- Docker Lifecycle ---
 up:
-	docker compose up -d db backend
+	docker compose up -d
 
 build:
-	docker compose up --build -d db backend
+	docker compose up --build -d
 
 down:
 	docker compose down
@@ -86,3 +92,18 @@ uv-sync:
 
 uv-run:
 	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# --- Frontend Operations ---
+frontend-install:
+	cd frontend && npm install
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-test:
+	cd frontend && npm run type-check
+	cd frontend && npm run lint
+	cd frontend && npm run test:unit
+
+frontend-build:
+	cd frontend && npm run build

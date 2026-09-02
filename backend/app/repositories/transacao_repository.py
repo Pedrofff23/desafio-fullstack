@@ -103,6 +103,42 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         )
         return float(row.scalar() or 0)
 
+    async def entradas_disponiveis(
+        self, produto_id: int | None = None
+    ) -> list[dict]:
+        """Lista entradas que ainda possuem saldo para uma futura saída."""
+
+        filtro_produto = (
+            " AND produto_id = :produto_id" if produto_id is not None else ""
+        )
+        query = text(
+            f"""
+            SELECT
+                entrada_id,
+                lote_id,
+                produto_id,
+                fornecedor_id,
+                localizacao_id,
+                quantidade
+            FROM estoque_entrada
+            WHERE quantidade > 0{filtro_produto}
+            ORDER BY produto_id, lote_id, entrada_id
+            """
+        )
+        params = {"produto_id": produto_id} if produto_id is not None else {}
+        rows = await self.session.execute(query, params)
+        return [
+            {
+                "entrada_id": int(row[0]),
+                "lote_id": int(row[1]),
+                "produto_id": int(row[2]),
+                "fornecedor_id": int(row[3]),
+                "localizacao_id": int(row[4]),
+                "quantidade": float(row[5]),
+            }
+            for row in rows.fetchall()
+        ]
+
     async def estoque_atual_por_produto(self) -> list[dict]:
         """Linhas agregadas do estoque por produto (view estoque_produto)."""
 

@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
+    EstoqueEntradaOut,
     FornecedorCreate,
     FornecedorOut,
     EstoqueProdutoOut,
@@ -73,6 +74,15 @@ async def registrar_saida(
 # ---------------------------------------------------------------------------
 # Estoque atual e histórico
 # ---------------------------------------------------------------------------
+
+@router.get("/entradas-disponiveis", response_model=list[EstoqueEntradaOut])
+async def entradas_disponiveis(
+    produto_id: int | None = Query(None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    return await TransacaoService(db).entradas_disponiveis(produto_id=produto_id)
+
 
 @router.get("/estoque", response_model=PaginatedResponse[EstoqueProdutoOut])
 async def estoque_atual(
