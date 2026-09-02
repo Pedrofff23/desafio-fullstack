@@ -8,9 +8,9 @@ O plano reconstruído do projeto está em `PLANO_DE_CONCLUSAO.md`.
 ## Estado atual
 
 - Backend, migrations e seeds concluídos.
-- Autenticação, usuários, produtos, lotes, fornecedores e estoque disponíveis.
-- Testes de integração executados em um banco PostgreSQL temporário.
-- Frontend e container do frontend ainda pendentes para a fase 4.
+- Frontend Vue/Vuetify com autenticação, usuários, produtos, lotes,
+  fornecedores, estoque e movimentações concluído.
+- Banco, backend e frontend containerizados separadamente.
 
 ## Stack definida
 
@@ -30,12 +30,23 @@ O plano reconstruído do projeto está em `PLANO_DE_CONCLUSAO.md`.
 - **DTO:** schemas Pydantic em `backend/app/schemas/` e, futuramente, interfaces
   TypeScript no frontend.
 
-## Executar o backend atual com Docker
+## Executar a aplicação com Docker
+
+O Docker Compose inicia três serviços independentes:
+
+```text
+Navegador → frontend (Nginx, porta 8080) → backend (FastAPI, porta 8000) → db (PostgreSQL, porta 5432)
+```
+
+O Nginx entrega a SPA (Single Page Application) e encaminha chamadas iniciadas por `/api/` ao backend. Por
+isso, as rotas do Vue continuam acessíveis mesmo após atualizar diretamente a
+página no navegador.
 
 ### Pré-requisitos
 
-- Docker;
-- Docker Compose.
+- Docker Desktop ou Docker Engine com Docker Compose;
+- portas `8080`, `8000` e `5432` livres, ou valores alternativos configurados
+  nas variáveis de ambiente abaixo.
 - Para executar o backend fora do Docker: [uv](https://docs.astral.sh/uv/).
 
 ### 1. Criar o arquivo de ambiente
@@ -49,15 +60,22 @@ Copy-Item backend/.env.example backend/.env
 Troque o valor de `SECRET_KEY` em `backend/.env` antes de usar o projeto fora de
 um ambiente local de desenvolvimento.
 
-### 2. Iniciar somente banco e backend
-
-Enquanto o frontend não existe, informe explicitamente os dois serviços:
+### 2. Construir e iniciar banco, backend e frontend
 
 ```bash
-docker compose up --build db backend
+docker compose up --build -d
 ```
 
-O backend tenta executar `alembic upgrade head` durante a inicialização.
+O backend executa `alembic upgrade head` durante a inicialização. Aguarde o
+status saudável do banco e do backend antes de carregar os dados:
+
+```bash
+docker compose ps
+docker compose logs -f backend
+```
+
+Para encerrar a visualização dos logs, use `Ctrl+C`; os containers continuam em
+execução.
 
 ### 3. Carregar os dados geográficos
 
@@ -80,6 +98,49 @@ docker compose exec backend python -m scripts.init_db
 docker compose exec backend python -m scripts.seed_demo
 ```
 
+### Acessar os serviços
+
+| Serviço | Endereço |
+|---|---|
+| Frontend | http://localhost:8080 |
+| API | http://localhost:8000 |
+| Swagger | http://localhost:8000/docs |
+| Health check | http://localhost:8000/health |
+| PostgreSQL | `localhost:5432` |
+
+### Variáveis de ambiente do Compose
+
+Os valores abaixo possuem defaults para desenvolvimento local. Você pode criá-los
+em um arquivo `.env` na raiz do projeto ou defini-los no terminal antes de subir
+os containers.
+
+| Variável | Padrão | Uso |
+|---|---:|---|
+| `POSTGRES_USER` | `estoque` | Usuário do PostgreSQL |
+| `POSTGRES_PASSWORD` | `estoque123` | Senha do PostgreSQL |
+| `POSTGRES_DB` | `gerenciamento_estoque` | Nome do banco |
+| `DB_PORT` | `5432` | Porta exposta pelo PostgreSQL |
+| `BACKEND_PORT` | `8000` | Porta exposta pela API |
+| `FRONTEND_PORT` | `8080` | Porta exposta pelo Nginx |
+
+As configurações da aplicação, incluindo `SECRET_KEY`, ficam em
+`backend/.env`, criado a partir de `backend/.env.example` no passo 1.
+
+### Operação e recuperação
+
+O volume nomeado `db_data` preserva os dados do PostgreSQL entre reinicializações.
+Para apagar completamente o banco local, use o comando abaixo **somente quando
+os dados puderem ser descartados**:
+
+```bash
+make db-clean
+make up
+make db-seed-all
+```
+
+Após essa limpeza, execute `make db-seed-all` apenas depois de `make up` deixar
+o backend disponível.
+
 ## Comandos do Makefile
 
 Se o `make` estiver instalado no ambiente, os comandos abaixo simplificam as
@@ -88,8 +149,8 @@ operações mais comuns. Execute `make help` para ver essa lista no terminal.
 | Comando | Descrição |
 |---|---|
 | `make help` | Exibe todos os comandos disponíveis. |
-| `make up` | Inicia banco e backend em segundo plano. |
-| `make build` | Reconstrói e inicia banco e backend. |
+| `make up` | Inicia banco, backend e frontend em segundo plano. |
+| `make build` | Reconstrói e inicia os três serviços. |
 | `make down` | Para os containers do projeto. |
 | `make restart` | Reinicia os containers. |
 | `make logs` | Acompanha os logs de todos os serviços. |
@@ -103,6 +164,10 @@ operações mais comuns. Execute `make help` para ver essa lista no terminal.
 | `make backend-test` | Executa os testes do backend no container. |
 | `make uv-sync` | Instala dependências locais do backend com `uv`. |
 | `make uv-run` | Inicia a API localmente com `uv` e recarregamento automático. |
+| `make frontend-install` | Instala as dependências do frontend com npm. |
+| `make frontend-dev` | Inicia o frontend local com Vite. |
+| `make frontend-test` | Executa type-check, lint e testes unitários do frontend. |
+| `make frontend-build` | Gera o build de produção do frontend. |
 
 ### Dependências locais com uv
 
@@ -123,17 +188,28 @@ uv add --group dev nome-do-pacote-de-desenvolvimento
 uv lock
 ```
 
-## Serviços disponíveis no estado atual
+### Frontend local
+
+Com o backend disponível na porta 8000:
+
+```bash
+make frontend-install
+make frontend-dev
+```
+
+O servidor Vite encaminha `/api` para o backend. A aplicação local fica em
+`http://localhost:5173`.
+
+## Serviços disponíveis
 
 | Serviço | URL |
 |---|---|
 | API | http://localhost:8000 |
 | Swagger | http://localhost:8000/docs |
 | Health check | http://localhost:8000/health |
+| Frontend Docker | http://localhost:8080 |
+| Frontend Vite | http://localhost:5173 |
 | PostgreSQL | localhost:5432 |
-
-O frontend será disponibilizado em `http://localhost:8080` quando a fase 4 for
-concluída.
 
 ## Administrador inicial
 
@@ -197,6 +273,7 @@ Todas as rotas abaixo usam o prefixo `/api/v1`.
 | POST | `/transacoes/fornecedores` | Cria fornecedor com contato e endereço |
 | POST | `/transacoes/entrada` | Registra entrada, tipo, data e observação |
 | POST | `/transacoes/saida` | Registra saída, validando o saldo |
+| GET | `/transacoes/entradas-disponiveis` | Lista entradas com saldo para registrar saídas |
 | GET | `/transacoes/estoque` | Consulta estoque atual |
 | GET | `/transacoes/historico` | Histórico com filtros e auditoria |
 
@@ -235,8 +312,12 @@ Com banco e backend em execução:
 docker compose exec backend pytest -q
 ```
 
-## Próximas etapas
+Para validar o frontend:
 
-1. Criar o frontend Vue/Vuetify conforme a fase 4.
-2. Adicionar o Dockerfile do frontend.
-3. Validar os três containers e revisar a entrega final.
+```bash
+cd frontend
+npm run type-check
+npm run lint
+npm run test:unit
+npm run build
+```
