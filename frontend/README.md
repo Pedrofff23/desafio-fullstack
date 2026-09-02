@@ -3,6 +3,10 @@
 SPA construída com Vue 3, TypeScript, Options API, Vuetify 3, Vue Router, Pinia
 e Axios.
 
+O cadastro de produto inclui nutrientes, ingredientes ordenados e alérgenos.
+A validade é exibida somente nos lotes: a inspeção de um produto lista todos os
+seus lotes com saldo, prazo, situação de validade e localização física.
+
 ## Desenvolvimento local
 
 Com o backend disponível em `http://localhost:8000`:
