@@ -4,7 +4,14 @@ import { defineComponent } from 'vue'
 import { produtosApi } from '@/api/produtos'
 import { transacoesApi } from '@/api/transacoes'
 import PageHeader from '@/components/PageHeader.vue'
-import type { CatalogoProduto, Fornecedor, Lote, Produto, RegistroEntradaCreate } from '@/types/api'
+import type {
+  CatalogoProduto,
+  Fornecedor,
+  Localizacao,
+  Lote,
+  Produto,
+  RegistroEntradaCreate,
+} from '@/types/api'
 import { getErrorMessage } from '@/utils/errors'
 import { toIsoDateTime } from '@/utils/formatters'
 
@@ -18,7 +25,6 @@ function emptyForm(): RegistroEntradaCreate {
     tipo_entrada: 'compra',
     observacao: null,
     preco_custo: 0,
-    preco_sugerido: 0,
   }
 }
 
@@ -30,7 +36,13 @@ export default defineComponent({
       products: [] as Produto[],
       suppliers: [] as Fornecedor[],
       lots: [] as Lote[],
-      catalog: { unidades_medida: [], categorias: [], localizacoes: [] } as CatalogoProduto,
+      catalog: {
+        unidades_medida: [],
+        categorias: [],
+        localizacoes: [],
+        ingredientes: [],
+        alergenos: [],
+      } as CatalogoProduto,
       productId: null as number | null,
       form: emptyForm(),
       transactionDate: '',
@@ -45,8 +57,6 @@ export default defineComponent({
     productId(value: number | null) {
       this.form.lote_id = null
       if (value) {
-        const product = this.products.find((item) => item.id === value)
-        if (product && this.form.preco_sugerido === 0) this.form.preco_sugerido = product.preco
         void this.loadLots(value)
       } else this.lots = []
     },
@@ -68,6 +78,10 @@ export default defineComponent({
     }
   },
   methods: {
+    locationLabel(location: Localizacao): string {
+      const level = location.nivel ? ` / Nível ${location.nivel}` : ''
+      return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}`
+    },
     async loadLots(productId: number) {
       this.loadingLots = true
       try {
@@ -96,7 +110,6 @@ export default defineComponent({
           ...this.form,
           quantidade: Number(this.form.quantidade),
           preco_custo: Number(this.form.preco_custo),
-          preco_sugerido: Number(this.form.preco_sugerido),
           data_entrada: toIsoDateTime(this.transactionDate),
           observacao: this.form.observacao || null,
         })
@@ -174,7 +187,7 @@ export default defineComponent({
             ><v-select
               v-model="form.localizacao_id"
               :items="catalog.localizacoes"
-              :item-title="(item) => `Localização ${item.id} · Prateleira ${item.prateleira_id}`"
+              :item-title="locationLabel"
               item-value="id"
               label="Localização (opcional)"
               clearable
@@ -207,16 +220,6 @@ export default defineComponent({
               step="0.01"
               prefix="R$"
               label="Preço de custo"
-              required
-          /></v-col>
-          <v-col cols="6" md="3"
-            ><v-text-field
-              v-model.number="form.preco_sugerido"
-              type="number"
-              min="0"
-              step="0.01"
-              prefix="R$"
-              label="Preço sugerido"
               required
           /></v-col>
           <v-col cols="12" md="9"

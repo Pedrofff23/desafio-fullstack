@@ -103,12 +103,51 @@ export interface Categoria {
 export interface Localizacao {
   id: number
   prateleira_id: number
+  corredor: string
+  seccao: string
+  prateleira: string
+  nivel: number | null
+  descricao: string | null
+}
+
+export interface Ingrediente {
+  id: number
+  nome: string
+  descricao: string | null
+}
+
+export interface Alergeno {
+  id: number
+  nome: string
+  descricao: string | null
+}
+
+export interface NutrienteInput {
+  nome: string
+  unidade: string
+  valor: number
+}
+
+export interface Nutriente extends NutrienteInput {
+  id: number
+}
+
+export interface ProdutoIngredienteInput {
+  ingrediente_id: number
+  ordem: number
+}
+
+export interface ProdutoIngrediente extends ProdutoIngredienteInput {
+  nome: string
+  descricao: string | null
 }
 
 export interface CatalogoProduto {
   unidades_medida: UnidadeMedida[]
   categorias: Categoria[]
   localizacoes: Localizacao[]
+  ingredientes: Ingrediente[]
+  alergenos: Alergeno[]
 }
 
 export interface LoteInput {
@@ -121,9 +160,20 @@ export interface LoteInput {
 export interface Lote extends LoteInput {
   id: number
   produto_id: number
+  quantidade_estoque: number
+  status_estoque: 'com_estoque' | 'sem_estoque'
+  dias_para_vencer: number | null
+  status_validade: LoteValidadeStatus
+  localizacoes: LoteLocalizacao[]
 }
 
-export type ProdutoStatus = 'ok' | 'validade_proxima' | 'vencido' | 'estoque_baixo' | 'zerado'
+export interface LoteLocalizacao extends Localizacao {
+  quantidade: number
+}
+
+export type LoteValidadeStatus = 'normal' | 'validade_proxima' | 'vencido' | 'sem_validade'
+
+export type ProdutoStatus = 'ok' | 'estoque_baixo' | 'zerado'
 
 export interface Produto {
   id: number
@@ -139,8 +189,10 @@ export interface Produto {
   unidade_medida: UnidadeMedida | null
   categoria: Categoria | null
   quantidade_estoque: number
-  data_validade: string | null
   status: ProdutoStatus
+  nutrientes: Nutriente[]
+  ingredientes: ProdutoIngrediente[]
+  alergenos: Alergeno[]
 }
 
 export interface ProdutoCreate {
@@ -154,6 +206,9 @@ export interface ProdutoCreate {
   localizacao_id: number | null
   ativo: boolean
   lote_inicial: LoteInput | null
+  nutrientes: NutrienteInput[]
+  ingredientes: ProdutoIngredienteInput[]
+  alergeno_ids: number[]
 }
 
 export interface ProdutoUpdate {
@@ -165,6 +220,9 @@ export interface ProdutoUpdate {
   categoria_id?: number
   localizacao_id?: number
   ativo?: boolean
+  nutrientes?: NutrienteInput[]
+  ingredientes?: ProdutoIngredienteInput[]
+  alergeno_ids?: number[]
 }
 
 export interface Fornecedor {
@@ -192,7 +250,6 @@ export interface RegistroEntradaCreate {
   tipo_entrada: string
   observacao: string | null
   preco_custo: number
-  preco_sugerido: number
 }
 
 export interface RegistroSaidaCreate {

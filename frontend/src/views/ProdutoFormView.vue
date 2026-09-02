@@ -3,11 +3,32 @@ import { defineComponent } from 'vue'
 
 import { produtosApi } from '@/api/produtos'
 import PageHeader from '@/components/PageHeader.vue'
-import type { CatalogoProduto, LoteInput, ProdutoCreate, ProdutoUpdate } from '@/types/api'
+import type {
+  CatalogoProduto,
+  Localizacao,
+  LoteInput,
+  NutrienteInput,
+  ProdutoCreate,
+  ProdutoUpdate,
+} from '@/types/api'
 import { getErrorMessage } from '@/utils/errors'
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+function emptyCatalog(): CatalogoProduto {
+  return {
+    unidades_medida: [],
+    categorias: [],
+    localizacoes: [],
+    ingredientes: [],
+    alergenos: [],
+  }
+}
+
+function emptyNutrient(): NutrienteInput {
+  return { nome: '', unidade: '', valor: 0 }
 }
 
 export default defineComponent({
@@ -33,7 +54,10 @@ export default defineComponent({
         data_validade: null,
         ativo: true,
       } as LoteInput,
-      catalog: { unidades_medida: [], categorias: [], localizacoes: [] } as CatalogoProduto,
+      nutrientes: [] as NutrienteInput[],
+      ingredienteIds: [] as number[],
+      alergenoIds: [] as number[],
+      catalog: emptyCatalog(),
       loading: true,
       saving: false,
       error: '',
@@ -72,6 +96,16 @@ export default defineComponent({
           localizacao_id: product.localizacao_id,
           ativo: product.ativo,
         }
+        this.nutrientes = product.nutrientes.map(({ nome, unidade, valor }) => ({
+          nome,
+          unidade,
+          valor,
+        }))
+        this.ingredienteIds = product.ingredientes
+          .slice()
+          .sort((a, b) => a.ordem - b.ordem)
+          .map((item) => item.ingrediente_id)
+        this.alergenoIds = product.alergenos.map((item) => item.id)
       }
     } catch (error) {
       this.error = getErrorMessage(error)
@@ -80,6 +114,27 @@ export default defineComponent({
     }
   },
   methods: {
+    locationLabel(location: Localizacao): string {
+      const level = location.nivel ? ` / Nível ${location.nivel}` : ''
+      return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}`
+    },
+    addNutrient() {
+      this.nutrientes.push(emptyNutrient())
+    },
+    removeNutrient(index: number) {
+      this.nutrientes.splice(index, 1)
+    },
+    ingredientName(id: number): string {
+      return this.catalog.ingredientes.find((item) => item.id === id)?.nome ?? `Ingrediente ${id}`
+    },
+    moveIngredient(index: number, direction: -1 | 1) {
+      const target = index + direction
+      if (target < 0 || target >= this.ingredienteIds.length) return
+      const ingredientId = this.ingredienteIds[index]
+      if (ingredientId === undefined) return
+      this.ingredienteIds.splice(index, 1)
+      this.ingredienteIds.splice(target, 0, ingredientId)
+    },
     validate(): boolean {
       if (
         !this.form.codigo ||
@@ -103,6 +158,10 @@ export default defineComponent({
         this.error = 'Produto perecível exige lote inicial com validade.'
         return false
       }
+      if (this.nutrientes.some((item) => !item.nome.trim() || !item.unidade.trim())) {
+        this.error = 'Preencha o nome e a unidade de todos os nutrientes.'
+        return false
+      }
       return true
     },
     async submit() {
@@ -110,6 +169,18 @@ export default defineComponent({
       if (!this.validate()) return
       this.saving = true
       try {
+        const composition = {
+          nutrientes: this.nutrientes.map((item) => ({
+            nome: item.nome.trim(),
+            unidade: item.unidade.trim(),
+            valor: Number(item.valor),
+          })),
+          ingredientes: this.ingredienteIds.map((ingrediente_id, index) => ({
+            ingrediente_id,
+            ordem: index + 1,
+          })),
+          alergeno_ids: [...this.alergenoIds],
+        }
         if (this.editing && this.productId) {
           const payload: ProdutoUpdate = {
             codigo: this.form.codigo,
@@ -120,6 +191,7 @@ export default defineComponent({
             categoria_id: this.form.categoria_id!,
             localizacao_id: this.form.localizacao_id!,
             ativo: this.form.ativo,
+            ...composition,
           }
           await produtosApi.update(this.productId, payload)
         } else {
@@ -127,6 +199,7 @@ export default defineComponent({
             ...this.form,
             preco: Number(this.form.preco),
             lote_inicial: this.includeLot ? this.lot : null,
+            ...composition,
           }
           await produtosApi.create(payload)
         }
@@ -190,7 +263,7 @@ export default defineComponent({
             ><v-select
               v-model="form.localizacao_id"
               :items="catalog.localizacoes"
-              :item-title="(item) => `Localização ${item.id} · Prateleira ${item.prateleira_id}`"
+              :item-title="locationLabel"
               item-value="id"
               label="Localização preferencial"
               required
@@ -232,6 +305,106 @@ export default defineComponent({
                   :required="form.perecivel"
               /></v-col>
             </template>
+          </template>
+
+          <v-col cols="12"><v-divider class="my-2" /></v-col>
+          <v-col cols="12">
+            <div class="d-flex align-center justify-space-between mb-3">
+              <div>
+                <div class="text-h6">Informações alimentícias</div>
+                <div class="text-body-2 text-medium-emphasis">
+                  Ingredientes, alérgenos e valores nutricionais do produto.
+                </div>
+              </div>
+              <v-btn variant="outlined" prepend-icon="mdi-plus" @click="addNutrient">
+                Nutriente
+              </v-btn>
+            </div>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-autocomplete
+              v-model="ingredienteIds"
+              :items="catalog.ingredientes"
+              item-title="nome"
+              item-value="id"
+              label="Ingredientes"
+              hint="Use as setas abaixo para definir a ordem da composição."
+              persistent-hint
+              multiple
+              chips
+              closable-chips
+            />
+            <v-list v-if="ingredienteIds.length" density="compact" class="mt-2">
+              <v-list-item
+                v-for="(ingredienteId, index) in ingredienteIds"
+                :key="ingredienteId"
+                :title="`${index + 1}. ${ingredientName(ingredienteId)}`"
+              >
+                <template #append>
+                  <v-btn
+                    icon="mdi-chevron-up"
+                    size="x-small"
+                    variant="text"
+                    title="Mover ingrediente para cima"
+                    :disabled="index === 0"
+                    @click="moveIngredient(index, -1)"
+                  />
+                  <v-btn
+                    icon="mdi-chevron-down"
+                    size="x-small"
+                    variant="text"
+                    title="Mover ingrediente para baixo"
+                    :disabled="index === ingredienteIds.length - 1"
+                    @click="moveIngredient(index, 1)"
+                  />
+                </template>
+              </v-list-item>
+            </v-list>
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-autocomplete
+              v-model="alergenoIds"
+              :items="catalog.alergenos"
+              item-title="nome"
+              item-value="id"
+              label="Alérgenos"
+              multiple
+              chips
+              closable-chips
+            />
+          </v-col>
+
+          <v-col v-if="nutrientes.length === 0" cols="12">
+            <v-alert type="info" variant="tonal" density="compact">
+              Nenhuma informação nutricional adicionada.
+            </v-alert>
+          </v-col>
+          <template v-for="(nutriente, index) in nutrientes" :key="index">
+            <v-col cols="12" md="5">
+              <v-text-field v-model.trim="nutriente.nome" label="Nutriente" />
+            </v-col>
+            <v-col cols="5" md="3">
+              <v-text-field v-model.trim="nutriente.unidade" label="Unidade" />
+            </v-col>
+            <v-col cols="5" md="3">
+              <v-text-field
+                v-model.number="nutriente.valor"
+                type="number"
+                min="0"
+                step="0.001"
+                label="Valor"
+              />
+            </v-col>
+            <v-col cols="2" md="1" class="d-flex align-center justify-end">
+              <v-btn
+                icon="mdi-delete-outline"
+                color="error"
+                variant="text"
+                title="Remover nutriente"
+                @click="removeNutrient(index)"
+              />
+            </v-col>
           </template>
         </v-row>
         <div class="form-actions">
