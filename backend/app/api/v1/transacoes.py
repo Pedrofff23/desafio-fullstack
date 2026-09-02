@@ -6,6 +6,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.api.openapi import (
+    INVENTORY_MOVEMENTS_TAG,
+    INVENTORY_QUERIES_TAG,
+    SUPPLIERS_TAG,
+)
 from app.core.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.common import PaginatedResponse
@@ -22,7 +27,7 @@ from app.schemas.transacao import (
 )
 from app.services.transacao_service import TransacaoService
 
-router = APIRouter(prefix="/transacoes", tags=["Transações de Estoque"])
+router = APIRouter(prefix="/transacoes")
 
 
 # ---------------------------------------------------------------------------
@@ -30,14 +35,25 @@ router = APIRouter(prefix="/transacoes", tags=["Transações de Estoque"])
 # ---------------------------------------------------------------------------
 
 
-@router.get("/fornecedores", response_model=list[FornecedorOut])
+@router.get(
+    "/fornecedores",
+    response_model=list[FornecedorOut],
+    tags=[SUPPLIERS_TAG],
+    summary="Listar fornecedores",
+)
 async def listar_fornecedores(
     db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
 ):
     return await TransacaoService(db).listar_fornecedores()
 
 
-@router.post("/fornecedores", response_model=FornecedorOut, status_code=201)
+@router.post(
+    "/fornecedores",
+    response_model=FornecedorOut,
+    status_code=201,
+    tags=[SUPPLIERS_TAG],
+    summary="Cadastrar fornecedor",
+)
 async def criar_fornecedor(
     payload: FornecedorCreate,
     db: AsyncSession = Depends(get_db),
@@ -51,7 +67,13 @@ async def criar_fornecedor(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/entrada", response_model=RegistroEntradaOut, status_code=201)
+@router.post(
+    "/entrada",
+    response_model=RegistroEntradaOut,
+    status_code=201,
+    tags=[INVENTORY_MOVEMENTS_TAG],
+    summary="Registrar entrada de estoque",
+)
 async def registrar_entrada(
     payload: RegistroEntradaCreate,
     db: AsyncSession = Depends(get_db),
@@ -62,7 +84,13 @@ async def registrar_entrada(
     )
 
 
-@router.post("/saida", response_model=RegistroSaidaOut, status_code=201)
+@router.post(
+    "/saida",
+    response_model=RegistroSaidaOut,
+    status_code=201,
+    tags=[INVENTORY_MOVEMENTS_TAG],
+    summary="Registrar saída de estoque",
+)
 async def registrar_saida(
     payload: RegistroSaidaCreate,
     db: AsyncSession = Depends(get_db),
@@ -78,7 +106,12 @@ async def registrar_saida(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/entradas-disponiveis", response_model=list[EstoqueEntradaOut])
+@router.get(
+    "/entradas-disponiveis",
+    response_model=list[EstoqueEntradaOut],
+    tags=[INVENTORY_QUERIES_TAG],
+    summary="Listar entradas com saldo disponível",
+)
 async def entradas_disponiveis(
     produto_id: int | None = Query(None, ge=1),
     db: AsyncSession = Depends(get_db),
@@ -87,7 +120,12 @@ async def entradas_disponiveis(
     return await TransacaoService(db).entradas_disponiveis(produto_id=produto_id)
 
 
-@router.get("/estoque", response_model=PaginatedResponse[EstoqueProdutoOut])
+@router.get(
+    "/estoque",
+    response_model=PaginatedResponse[EstoqueProdutoOut],
+    tags=[INVENTORY_QUERIES_TAG],
+    summary="Consultar estoque atual por produto",
+)
 async def estoque_atual(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -97,7 +135,12 @@ async def estoque_atual(
     return await TransacaoService(db).estoque_atual(page=page, size=size)
 
 
-@router.get("/historico", response_model=PaginatedResponse[MovimentoOut])
+@router.get(
+    "/historico",
+    response_model=PaginatedResponse[MovimentoOut],
+    tags=[INVENTORY_QUERIES_TAG],
+    summary="Consultar histórico de movimentações",
+)
 async def historico(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),

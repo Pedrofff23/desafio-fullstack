@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.api.openapi import CATALOGS_TAG, LOTS_TAG, PRODUCTS_TAG
 from app.core.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.common import MessageResponse, PaginatedResponse
 from app.schemas.produto import (
+    ListaCatalogo,
     LoteCreate,
     LoteOut,
     ProdutoCreate,
@@ -16,15 +18,25 @@ from app.schemas.produto import (
 )
 from app.services.produto_service import ProdutoService
 
-router = APIRouter(prefix="/produtos", tags=["Produtos"])
+router = APIRouter(prefix="/produtos")
 
 
-@router.get("/catalogo")
+@router.get(
+    "/catalogo",
+    response_model=ListaCatalogo,
+    tags=[CATALOGS_TAG],
+    summary="Listar dados auxiliares de produtos",
+)
 async def catalogo(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     return await ProdutoService(db).catalogo()
 
 
-@router.get("", response_model=PaginatedResponse[ProdutoOut])
+@router.get(
+    "",
+    response_model=PaginatedResponse[ProdutoOut],
+    tags=[PRODUCTS_TAG],
+    summary="Listar produtos",
+)
 async def listar(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -45,7 +57,13 @@ async def listar(
     )
 
 
-@router.post("", response_model=ProdutoOut, status_code=201)
+@router.post(
+    "",
+    response_model=ProdutoOut,
+    status_code=201,
+    tags=[PRODUCTS_TAG],
+    summary="Cadastrar produto",
+)
 async def criar(
     payload: ProdutoCreate,
     db: AsyncSession = Depends(get_db),
@@ -57,14 +75,24 @@ async def criar(
     )
 
 
-@router.get("/{produto_id}", response_model=ProdutoOut)
+@router.get(
+    "/{produto_id}",
+    response_model=ProdutoOut,
+    tags=[PRODUCTS_TAG],
+    summary="Obter produto",
+)
 async def obter(
     produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
 ):
     return await ProdutoService(db).obter(produto_id)
 
 
-@router.put("/{produto_id}", response_model=ProdutoOut)
+@router.put(
+    "/{produto_id}",
+    response_model=ProdutoOut,
+    tags=[PRODUCTS_TAG],
+    summary="Atualizar produto",
+)
 async def atualizar(
     produto_id: int,
     payload: ProdutoUpdate,
@@ -74,7 +102,12 @@ async def atualizar(
     return await ProdutoService(db).atualizar(produto_id, payload)
 
 
-@router.delete("/{produto_id}", response_model=MessageResponse)
+@router.delete(
+    "/{produto_id}",
+    response_model=MessageResponse,
+    tags=[PRODUCTS_TAG],
+    summary="Excluir produto",
+)
 async def excluir(
     produto_id: int,
     db: AsyncSession = Depends(get_db),
@@ -89,14 +122,25 @@ async def excluir(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{produto_id}/lotes", response_model=list[LoteOut])
+@router.get(
+    "/{produto_id}/lotes",
+    response_model=list[LoteOut],
+    tags=[LOTS_TAG],
+    summary="Listar lotes de um produto",
+)
 async def listar_lotes(
     produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
 ):
     return await ProdutoService(db).listar_lotes(produto_id)
 
 
-@router.post("/{produto_id}/lotes", response_model=LoteOut, status_code=201)
+@router.post(
+    "/{produto_id}/lotes",
+    response_model=LoteOut,
+    status_code=201,
+    tags=[LOTS_TAG],
+    summary="Cadastrar lote de um produto",
+)
 async def criar_lote(
     produto_id: int,
     payload: LoteCreate,
