@@ -7,7 +7,7 @@ atomicidade entre as tabelas `enderecos`, `contatos`, `funcionarios` e `usuarios
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -84,32 +84,7 @@ class UsuarioService:
     async def listar(
         self, page: int = 1, size: int = 20, nome: str | None = None
     ) -> PaginatedResponse[UsuarioOut]:
-        stmt = (
-            select(Usuario)
-            .where(Usuario.excluido_em.is_(None))
-            .options(
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.endereco)
-                .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
-            )
-        )
-        total_stmt = select(func.count(Usuario.id)).where(Usuario.excluido_em.is_(None))
-        if nome:
-            termo = f"%{nome.strip()}%"
-            stmt = stmt.join(Usuario.funcionario).where(
-                Funcionario.nome_completo.ilike(termo)
-            )
-            total_stmt = total_stmt.join(Usuario.funcionario).where(
-                Funcionario.nome_completo.ilike(termo)
-            )
-        stmt = stmt.order_by(Usuario.id).offset((page - 1) * size).limit(size)
-        result = await self.session.execute(stmt)
-        itens = list(result.scalars().unique().all())
-
-        total = await self.session.execute(total_stmt)
-        total = int(total.scalar() or 0)
-
+        itens, total = await self.repo.listar_paginado(page=page, size=size, nome=nome)
         out = [self._to_out(u) for u in itens]
         return PaginatedResponse.build(out, total, page, size)
 

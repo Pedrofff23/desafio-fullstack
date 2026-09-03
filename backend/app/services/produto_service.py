@@ -261,12 +261,15 @@ class ProdutoService:
             )
         if status is not None and status not in STATUS_VALIDOS:
             raise HTTPException(status_code=422, detail="Status de produto inválido")
-        itens = await self.repo.listar_filtros(
-            nome=nome, preco_min=preco_min, preco_max=preco_max
+
+        itens, total, saldos, lotes_counts = await self.repo.listar_paginado(
+            page=page,
+            size=size,
+            nome=nome,
+            status=status,
+            preco_min=preco_min,
+            preco_max=preco_max,
         )
-        p_ids = [p.id for p in itens]
-        saldos = await self.repo.saldos_produtos(p_ids)
-        lotes_counts = await self.repo.contagem_lotes_produtos(p_ids)
         out = [
             self._enriquecer(
                 p,
@@ -275,11 +278,7 @@ class ProdutoService:
             )
             for p in itens
         ]
-        if status is not None:
-            out = [produto for produto in out if produto.status == status]
-        total = len(out)
-        inicio = (page - 1) * size
-        return PaginatedResponse.build(out[inicio : inicio + size], total, page, size)
+        return PaginatedResponse.build(out, total, page, size)
 
     async def obter(self, produto_id: int) -> ProdutoOut:
         produto = await self.repo.get_com_relacionamentos(produto_id)

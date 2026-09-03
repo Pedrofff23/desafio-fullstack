@@ -1,6 +1,6 @@
 """Repositório de produtos, lotes e catálogo."""
 
-from sqlalchemy import func, select, text
+from sqlalchemy import BigInteger, and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +18,8 @@ from app.models.produto import (
     UnidadeMedida,
 )
 from app.repositories.base import BaseRepository
+
+LIMIAR_ESTOQUE_BAIXO = 5
 
 
 class ProdutoRepository(BaseRepository[Produto]):
@@ -48,6 +50,84 @@ class ProdutoRepository(BaseRepository[Produto]):
             )
         )
         return result.scalars().unique().one_or_none()
+
+    async def listar_paginado(
+        self,
+        *,
+        page: int = 1,
+        size: int = 20,
+        nome: str | None = None,
+        status: str | None = None,
+        preco_min: float | None = None,
+        preco_max: float | None = None,
+    ) -> tuple[list[Produto], int, dict[int, float], dict[int, int]]:
+        """Listagem paginada de produtos com filtros e saldos calculados em SQL."""
+        estoque_subq = (
+            select(
+                func.cast(text("produto_id"), BigInteger).label("produto_id"),
+                func.coalesce(func.sum(text("quantidade")), 0).label("saldo"),
+            )
+            .select_from(text("estoque_produto"))
+            .group_by(text("produto_id"))
+            .subquery("sub_estoque")
+        )
+        saldo_col = func.coalesce(estoque_subq.c.saldo, 0)
+
+        base_stmt = (
+            select(Produto.id, saldo_col.label("saldo"))
+            .outerjoin(estoque_subq, estoque_subq.c.produto_id == Produto.id)
+            .where(Produto.excluido_em.is_(None))
+        )
+        if nome:
+            base_stmt = base_stmt.where(Produto.nome.ilike(f"%{nome.strip()}%"))
+        if preco_min is not None:
+            base_stmt = base_stmt.where(Produto.preco >= preco_min)
+        if preco_max is not None:
+            base_stmt = base_stmt.where(Produto.preco <= preco_max)
+        if status == "zerado":
+            base_stmt = base_stmt.where(saldo_col <= 0)
+        elif status == "estoque_baixo":
+            base_stmt = base_stmt.where(
+                and_(saldo_col > 0, saldo_col < LIMIAR_ESTOQUE_BAIXO)
+            )
+        elif status == "ok":
+            base_stmt = base_stmt.where(saldo_col >= LIMIAR_ESTOQUE_BAIXO)
+
+        total_stmt = select(func.count()).select_from(base_stmt.subquery())
+        total = int(await self.session.scalar(total_stmt) or 0)
+        if total == 0:
+            return [], 0, {}, {}
+
+        paged_id_stmt = (
+            base_stmt.order_by(Produto.nome, Produto.id)
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+        rows = (await self.session.execute(paged_id_stmt)).all()
+        p_ids = [int(r[0]) for r in rows]
+        saldos = {int(r[0]): float(r[1]) for r in rows}
+
+        stmt = (
+            select(Produto)
+            .where(Produto.id.in_(p_ids))
+            .options(
+                selectinload(Produto.unidade_medida),
+                selectinload(Produto.categoria),
+                selectinload(Produto.nutrientes),
+                selectinload(Produto.ingredientes_associacoes).selectinload(
+                    ProdutoIngrediente.ingrediente
+                ),
+                selectinload(Produto.alergenos_associacoes).selectinload(
+                    ProdutoAlergeno.alergeno
+                ),
+            )
+            .order_by(Produto.nome, Produto.id)
+        )
+        result = await self.session.execute(stmt)
+        produtos = list(result.scalars().unique().all())
+
+        lotes_counts = await self.contagem_lotes_produtos(p_ids)
+        return produtos, total, saldos, lotes_counts
 
     async def listar_filtros(
         self,
