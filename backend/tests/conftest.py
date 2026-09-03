@@ -15,8 +15,10 @@ from app.core.database import db_manager
 from app.core.security import hash_password
 from app.models.localidade import Cidade, Contato, Endereco, Estado, Pais
 from app.models.produto import (
+    Alergeno,
     Categoria,
     Corredor,
+    Ingrediente,
     LocalizacaoEstoque,
     Prateleira,
     Seccao,
@@ -59,7 +61,9 @@ async def test_database() -> AsyncGenerator[dict, None]:
         unidade = UnidadeMedida(sigla="un", descricao="Unidade")
         categoria = Categoria(nome="Alimentos", descricao="Produtos alimentícios")
         corredor = Corredor(nome="A", descricao="Principal")
-        seccao = Seccao(nome="Seção A", descricao="Principal")
+        seccao = Seccao(nome="Seção A", descricao="Principal", corredor=corredor)
+        ingrediente = Ingrediente(nome="Leite", descricao="Leite integral")
+        alergeno = Alergeno(nome="Lactose", descricao="Derivados do leite")
         session.add_all(
             [
                 pais,
@@ -70,15 +74,13 @@ async def test_database() -> AsyncGenerator[dict, None]:
                 unidade,
                 categoria,
                 corredor,
+                ingrediente,
+                alergeno,
             ]
         )
         await session.flush()
 
-        if seccao.id is None:
-            seccao.corredor_id = corredor.id
-            session.add(seccao)
-            await session.flush()
-        prateleira = Prateleira(seccao_id=seccao.id, nome="Prateleira 1", nivel=1)
+        prateleira = Prateleira(seccao=seccao, nome="Prateleira 1", nivel=1)
         session.add(prateleira)
         await session.flush()
         localizacao = LocalizacaoEstoque(prateleira_id=prateleira.id)
@@ -114,6 +116,8 @@ async def test_database() -> AsyncGenerator[dict, None]:
             "unidade_id": unidade.id,
             "categoria_id": categoria.id,
             "localizacao_id": localizacao.id,
+            "ingrediente_id": ingrediente.id,
+            "alergeno_id": alergeno.id,
         }
 
     yield dados

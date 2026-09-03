@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.openapi import API_DESCRIPTION, OPENAPI_TAGS, SYSTEM_TAG
 from app.api.v1 import api_router
 from app.core.config import settings
 
@@ -36,7 +37,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
+    description=API_DESCRIPTION,
     version=settings.APP_VERSION,
+    openapi_tags=OPENAPI_TAGS,
     lifespan=lifespan,
 )
 
@@ -51,7 +54,7 @@ app.add_middleware(
 app.include_router(api_router)
 
 
-@app.get("/health", tags=["Sistema"])
+@app.get("/health", tags=[SYSTEM_TAG], summary="Verificar a saúde da aplicação")
 async def health_check():
     from sqlalchemy import text
 

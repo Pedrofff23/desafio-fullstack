@@ -4,12 +4,15 @@ import { defineComponent } from 'vue'
 import { produtosApi, type ProdutoFilters } from '@/api/produtos'
 import ActiveStatusChip from '@/components/ActiveStatusChip.vue'
 import EmptyTableRow from '@/components/EmptyTableRow.vue'
+import LotExpirationChip from '@/components/LotExpirationChip.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import ProductStatusChip from '@/components/ProductStatusChip.vue'
-import type { Lote, LoteInput, Produto, ProdutoStatus } from '@/types/api'
+import type { Lote, LoteInput, LoteValidadeStatus, Produto, ProdutoStatus } from '@/types/api'
 import { getErrorMessage } from '@/utils/errors'
 import { formatCurrency, formatDate, formatQuantity } from '@/utils/formatters'
+
+type LotFilter = 'todos' | 'com_estoque' | LoteValidadeStatus
 
 function emptyLote(): LoteInput {
   return {
@@ -25,6 +28,7 @@ export default defineComponent({
   components: {
     ActiveStatusChip,
     EmptyTableRow,
+    LotExpirationChip,
     PageHeader,
     PaginationControls,
     ProductStatusChip,
@@ -39,9 +43,7 @@ export default defineComponent({
         preco_max: null as number | null,
       },
       statusOptions: [
-        { title: 'Normal', value: 'ok' },
-        { title: 'Validade próxima', value: 'validade_proxima' },
-        { title: 'Vencido', value: 'vencido' },
+        { title: 'Estoque normal', value: 'ok' },
         { title: 'Estoque baixo', value: 'estoque_baixo' },
         { title: 'Sem estoque', value: 'zerado' },
       ],
@@ -55,9 +57,25 @@ export default defineComponent({
       lotDialog: false,
       selectedProduct: null as Produto | null,
       lots: [] as Lote[],
+      lotFilter: 'todos' as LotFilter,
+      lotFilterOptions: [
+        { label: 'Todos', value: 'todos' },
+        { label: 'Com estoque', value: 'com_estoque' },
+        { label: 'Próximos do vencimento', value: 'validade_proxima' },
+        { label: 'Vencidos', value: 'vencido' },
+      ] as Array<{ label: string; value: LotFilter }>,
       lotForm: emptyLote(),
       lotLoading: false,
     }
+  },
+  computed: {
+    filteredLots(): Lote[] {
+      if (this.lotFilter === 'todos') return this.lots
+      if (this.lotFilter === 'com_estoque') {
+        return this.lots.filter((lot) => lot.quantidade_estoque > 0)
+      }
+      return this.lots.filter((lot) => lot.status_validade === this.lotFilter)
+    },
   },
   watch: {
     page() {
@@ -71,6 +89,30 @@ export default defineComponent({
     formatCurrency,
     formatDate,
     formatQuantity,
+    lotRowClass(lot: Lote): string {
+      if (lot.quantidade_estoque <= 0) return 'lot-row--empty'
+      if (lot.status_validade === 'vencido') return 'lot-row--expired'
+      if (lot.status_validade === 'validade_proxima') return 'lot-row--expiring'
+      return ''
+    },
+    expirationDays(lot: Lote): string {
+      if (lot.dias_para_vencer === null) return '—'
+      if (lot.dias_para_vencer < 0) {
+        const days = Math.abs(lot.dias_para_vencer)
+        return `Vencido há ${days} ${days === 1 ? 'dia' : 'dias'}`
+      }
+      if (lot.dias_para_vencer === 0) return 'Vence hoje'
+      return `${lot.dias_para_vencer} ${lot.dias_para_vencer === 1 ? 'dia' : 'dias'}`
+    },
+    lotLocations(lot: Lote): string {
+      if (lot.localizacoes.length === 0) return 'Sem estoque localizado'
+      return lot.localizacoes
+        .map((location) => {
+          const level = location.nivel ? ` / Nível ${location.nivel}` : ''
+          return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level} (${formatQuantity(location.quantidade)})`
+        })
+        .join('; ')
+    },
     async load() {
       this.loading = true
       this.error = ''
@@ -112,6 +154,7 @@ export default defineComponent({
     async openLots(produto: Produto) {
       this.selectedProduct = produto
       this.lotForm = emptyLote()
+      this.lotFilter = 'todos'
       this.lotDialog = true
       this.lotLoading = true
       try {
@@ -136,8 +179,12 @@ export default defineComponent({
       try {
         await produtosApi.createLote(this.selectedProduct.id, this.lotForm)
         this.lots = await produtosApi.listarLotes(this.selectedProduct.id)
+        if (this.selectedProduct) {
+          this.selectedProduct.total_lotes = this.lots.length
+        }
         this.lotForm = emptyLote()
         this.success = 'Lote cadastrado com sucesso.'
+        await this.load()
       } catch (error) {
         this.error = getErrorMessage(error)
       } finally {
@@ -166,8 +213,8 @@ export default defineComponent({
       closable
       class="mb-4"
       @click:close="error = ''"
-      >{{ error }}</v-alert
-    >
+      >{{ error }}
+    </v-alert>
     <v-alert
       v-if="success"
       type="success"
@@ -175,45 +222,50 @@ export default defineComponent({
       closable
       class="mb-4"
       @click:close="success = ''"
-      >{{ success }}</v-alert
     >
+      {{ success }}
+    </v-alert>
 
     <v-card class="data-card pa-4 mb-4">
       <v-form @submit.prevent="search">
         <v-row align="center">
-          <v-col cols="12" md="4"
-            ><v-text-field
+          <v-col cols="12" md="4">
+            <v-text-field
               v-model.trim="filters.nome"
               label="Nome do produto"
               hide-details
               clearable
-          /></v-col>
-          <v-col cols="12" md="3"
-            ><v-select
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-select
               v-model="filters.status"
               :items="statusOptions"
               label="Status"
               hide-details
               clearable
-          /></v-col>
-          <v-col cols="6" md="2"
-            ><v-text-field
+            />
+          </v-col>
+          <v-col cols="6" md="2">
+            <v-text-field
               v-model.number="filters.preco_min"
               type="number"
               min="0"
               step="0.01"
               label="Preço mín."
               hide-details
-          /></v-col>
-          <v-col cols="6" md="2"
-            ><v-text-field
+            />
+          </v-col>
+          <v-col cols="6" md="2">
+            <v-text-field
               v-model.number="filters.preco_max"
               type="number"
               min="0"
               step="0.01"
               label="Preço máx."
               hide-details
-          /></v-col>
+            />
+          </v-col>
           <v-col cols="12" md="1" class="d-flex ga-1">
             <v-btn icon="mdi-magnify" color="primary" type="submit" title="Pesquisar" />
             <v-btn
@@ -234,9 +286,9 @@ export default defineComponent({
           <tr>
             <th>Produto</th>
             <th>Preço</th>
-            <th>Validade</th>
-            <th>Saldo</th>
-            <th>Status</th>
+            <th>Quantidade em estoque</th>
+            <th class="text-center">Lotes</th>
+            <th>Status do estoque</th>
             <th class="text-right">Ações</th>
           </tr>
         </thead>
@@ -247,8 +299,16 @@ export default defineComponent({
               <div class="text-caption text-medium-emphasis">{{ produto.codigo }}</div>
             </td>
             <td>{{ formatCurrency(produto.preco) }}</td>
-            <td>{{ formatDate(produto.data_validade) }}</td>
             <td>{{ formatQuantity(produto.quantidade_estoque) }}</td>
+            <td class="text-center">
+              <v-chip
+                size="small"
+                variant="tonal"
+                :color="produto.total_lotes > 0 ? 'primary' : 'grey'"
+              >
+                {{ produto.total_lotes }} {{ produto.total_lotes === 1 ? 'lote' : 'lotes' }}
+              </v-chip>
+            </td>
             <td><ProductStatusChip :status="produto.status" /></td>
             <td>
               <div class="table-actions">
@@ -256,7 +316,7 @@ export default defineComponent({
                   icon="mdi-package-variant-closed"
                   size="small"
                   variant="text"
-                  title="Lotes"
+                  title="Visualizar lotes"
                   @click="openLots(produto)"
                 />
                 <v-btn
@@ -288,58 +348,106 @@ export default defineComponent({
       <PaginationControls v-model="page" :pages="pages" :total="total" />
     </v-card>
 
-    <v-dialog v-model="lotDialog" max-width="760">
+    <v-dialog v-model="lotDialog" max-width="1180">
       <v-card>
-        <v-card-title class="pa-5">Lotes de {{ selectedProduct?.nome }}</v-card-title>
+        <v-card-title class="pa-5">
+          Lotes de {{ selectedProduct?.nome }}
+          <span class="text-medium-emphasis text-body-1 font-weight-regular">
+            ({{ selectedProduct?.total_lotes ?? lots.length }}
+            {{ (selectedProduct?.total_lotes ?? lots.length) === 1 ? 'lote' : 'lotes' }})
+          </span>
+        </v-card-title>
         <v-card-text>
           <v-progress-linear v-if="lotLoading" color="primary" indeterminate class="mb-4" />
+          <div class="d-flex flex-wrap ga-2 mb-4">
+            <v-btn
+              v-for="option in lotFilterOptions"
+              :key="option.value"
+              size="small"
+              :variant="lotFilter === option.value ? 'flat' : 'outlined'"
+              :color="lotFilter === option.value ? 'primary' : undefined"
+              @click="lotFilter = option.value"
+            >
+              {{ option.label }}
+            </v-btn>
+          </div>
           <v-table density="compact" class="mb-5">
             <thead>
               <tr>
                 <th>Lote</th>
                 <th>Produção</th>
                 <th>Validade</th>
-                <th>Situação</th>
+                <th>Status da validade</th>
+                <th>Prazo</th>
+                <th>Saldo</th>
+                <th>Localização</th>
+                <th>Cadastro</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="lot in lots" :key="lot.id">
+              <tr v-for="lot in filteredLots" :key="lot.id" :class="lotRowClass(lot)">
                 <td>{{ lot.numero_lote }}</td>
                 <td>{{ formatDate(lot.data_producao) }}</td>
                 <td>{{ formatDate(lot.data_validade) }}</td>
+                <td><LotExpirationChip :status="lot.status_validade" /></td>
+                <td>{{ expirationDays(lot) }}</td>
+                <td>
+                  <v-chip
+                    :color="lot.quantidade_estoque > 0 ? 'primary' : 'grey'"
+                    size="small"
+                    variant="tonal"
+                  >
+                    {{ formatQuantity(lot.quantidade_estoque) }}
+                  </v-chip>
+                </td>
+                <td class="text-caption">{{ lotLocations(lot) }}</td>
                 <td><ActiveStatusChip :active="lot.ativo" /></td>
               </tr>
-              <tr v-if="lots.length === 0">
-                <td colspan="4" class="text-center text-medium-emphasis py-4">
-                  Nenhum lote cadastrado.
+              <tr v-if="filteredLots.length === 0">
+                <td colspan="8" class="text-center text-medium-emphasis py-4">
+                  Nenhum lote encontrado para este filtro.
                 </td>
               </tr>
             </tbody>
           </v-table>
           <div class="text-subtitle-1 font-weight-bold mb-3">Cadastrar lote</div>
           <v-row>
-            <v-col cols="12" md="5"
-              ><v-text-field v-model.trim="lotForm.numero_lote" label="Número do lote"
-            /></v-col>
-            <v-col cols="6" md="3"
-              ><v-text-field v-model="lotForm.data_producao" type="date" label="Produção"
-            /></v-col>
-            <v-col cols="6" md="4"
-              ><v-text-field
+            <v-col cols="12" md="5">
+              <v-text-field v-model.trim="lotForm.numero_lote" label="Número do lote" />
+            </v-col>
+            <v-col cols="6" md="3">
+              <v-text-field v-model="lotForm.data_producao" type="date" label="Produção" />
+            </v-col>
+            <v-col cols="6" md="4">
+              <v-text-field
                 v-model="lotForm.data_validade"
                 type="date"
                 label="Validade"
                 :required="selectedProduct?.perecivel"
-            /></v-col>
+              />
+            </v-col>
           </v-row>
         </v-card-text>
-        <v-card-actions class="pa-5 pt-0"
-          ><v-spacer /><v-btn variant="text" @click="lotDialog = false">Fechar</v-btn
-          ><v-btn color="primary" :loading="lotLoading" @click="createLot"
-            >Cadastrar lote</v-btn
-          ></v-card-actions
-        >
+        <v-card-actions class="pa-5 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="lotDialog = false">Fechar</v-btn>
+          <v-btn color="primary" :loading="lotLoading" @click="createLot">Cadastrar lote</v-btn>
+        </v-card-actions>
       </v-card>
     </v-dialog>
   </div>
 </template>
+
+<style scoped>
+.lot-row--expired {
+  background-color: rgba(211, 47, 47, 0.08);
+}
+
+.lot-row--expiring {
+  background-color: rgba(251, 140, 0, 0.1);
+}
+
+.lot-row--empty {
+  opacity: 0.68;
+}
+</style>

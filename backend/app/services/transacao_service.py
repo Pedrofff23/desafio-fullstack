@@ -95,6 +95,10 @@ class TransacaoService:
         if lote is None or lote.excluido_em is not None or not lote.ativo:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
 
+        produto = await self.session.get(Produto, lote.produto_id)
+        if produto is None or produto.excluido_em is not None or not produto.ativo:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
+
         fornecedor = await self.repo.get_fornecedor(data.fornecedor_id)
         if fornecedor is None or not fornecedor.ativo:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
@@ -102,10 +106,7 @@ class TransacaoService:
         localizacao_id = data.localizacao_id
         if localizacao_id is None:
             # Usa a localização preferencial do produto (trigger também garante).
-            from app.models.produto import Produto
-
-            produto = await self.session.get(Produto, lote.produto_id)
-            localizacao_id = produto.localizacao_id if produto else None
+            localizacao_id = produto.localizacao_id
             if localizacao_id is None:
                 raise HTTPException(
                     status_code=400, detail="Produto sem localização cadastrada"
@@ -119,6 +120,9 @@ class TransacaoService:
                 exclude_none=True,
             ),
             localizacao_id=localizacao_id,
+            # Campo legado obrigatório no banco base. Não faz parte do contrato
+            # público e apenas preserva o preço vigente no momento da entrada.
+            preco_sugerido=produto.preco,
             funcionario_id=funcionario_id,
         )
         entrada = await self.repo.add_entrada(entrada)

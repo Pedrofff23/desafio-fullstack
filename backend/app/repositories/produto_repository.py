@@ -5,10 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.produto import (
+    Alergeno,
     Categoria,
+    Ingrediente,
     LocalizacaoEstoque,
     Lote,
+    Prateleira,
     Produto,
+    ProdutoAlergeno,
+    ProdutoIngrediente,
+    Seccao,
     UnidadeMedida,
 )
 from app.repositories.base import BaseRepository
@@ -32,6 +38,13 @@ class ProdutoRepository(BaseRepository[Produto]):
             .options(
                 selectinload(Produto.unidade_medida),
                 selectinload(Produto.categoria),
+                selectinload(Produto.nutrientes),
+                selectinload(Produto.ingredientes_associacoes).selectinload(
+                    ProdutoIngrediente.ingrediente
+                ),
+                selectinload(Produto.alergenos_associacoes).selectinload(
+                    ProdutoAlergeno.alergeno
+                ),
             )
         )
         return result.scalars().unique().one_or_none()
@@ -49,6 +62,13 @@ class ProdutoRepository(BaseRepository[Produto]):
             .options(
                 selectinload(Produto.unidade_medida),
                 selectinload(Produto.categoria),
+                selectinload(Produto.nutrientes),
+                selectinload(Produto.ingredientes_associacoes).selectinload(
+                    ProdutoIngrediente.ingrediente
+                ),
+                selectinload(Produto.alergenos_associacoes).selectinload(
+                    ProdutoAlergeno.alergeno
+                ),
             )
             .order_by(Produto.nome, Produto.id)
         )
@@ -69,61 +89,6 @@ class ProdutoRepository(BaseRepository[Produto]):
         localizacao = await self.session.get(LocalizacaoEstoque, localizacao_id)
         return unidade is not None and categoria is not None and localizacao is not None
 
-    async def list_paginated_filtros(
-        self,
-        *,
-        page: int = 1,
-        size: int = 20,
-        nome: str | None = None,
-        status: str | None = None,
-        preco_min: float | None = None,
-        preco_max: float | None = None,
-    ) -> tuple[list[Produto], int]:
-        """Lista produtos com filtros de nome, status e intervalo de preço."""
-
-        base = select(Produto).where(Produto.excluido_em.is_(None))
-        count_stmt = select(func.count(Produto.id)).where(Produto.excluido_em.is_(None))
-
-        if nome:
-            like = f"%{nome.lower()}%"
-            base = base.where(func.lower(Produto.nome).like(like))
-
-        # Filtros de status e preço exigem junção com estoque/lotes (saldo e preço).
-        # Preço: usa o preço_sugerido mais recente do primeiro lote ativo com
-        # entrada; status: derivado de validade e saldo no service (simplificado
-        # aqui apenas com o preço, os alertas de status são calculados no service).
-        if preco_min is not None or preco_max is not None:
-            sub = (
-                select(Lote.produto_id, func.max(Lote.id).label("lote_id"))
-                .group_by(Lote.produto_id)
-                .subquery()
-            )
-            # Junta com o estoque real por produto (estatística agregada)
-            from app.models.transacao import RegistroEntrada
-
-            preco_sub = (
-                select(
-                    RegistroEntrada.lote_id,
-                    func.max(RegistroEntrada.preco_sugerido).label("preco"),
-                )
-                .group_by(RegistroEntrada.lote_id)
-                .subquery()
-            )
-            base = base.join(sub, sub.c.produto_id == Produto.id).join(
-                preco_sub, preco_sub.c.lote_id == sub.c.lote_id
-            )
-            if preco_min is not None:
-                base = base.where(preco_sub.c.preco >= preco_min)
-            if preco_max is not None:
-                base = base.where(preco_sub.c.preco <= preco_max)
-
-        result = await self.session.execute(base.offset((page - 1) * size).limit(size))
-        items = list(result.scalars().unique().all())
-
-        total = await self.session.execute(count_stmt)
-        total = int(total.scalar() or 0)
-        return items, total
-
     async def list_unidades(self) -> list[UnidadeMedida]:
         result = await self.session.execute(
             select(UnidadeMedida).order_by(UnidadeMedida.sigla)
@@ -136,9 +101,44 @@ class ProdutoRepository(BaseRepository[Produto]):
 
     async def list_localizacoes(self) -> list[LocalizacaoEstoque]:
         result = await self.session.execute(
-            select(LocalizacaoEstoque).order_by(LocalizacaoEstoque.id)
+            select(LocalizacaoEstoque)
+            .options(
+                selectinload(LocalizacaoEstoque.prateleira)
+                .selectinload(Prateleira.seccao)
+                .selectinload(Seccao.corredor)
+            )
+            .order_by(LocalizacaoEstoque.id)
         )
         return list(result.scalars().all())
+
+    async def list_ingredientes(self) -> list[Ingrediente]:
+        result = await self.session.execute(
+            select(Ingrediente).order_by(Ingrediente.nome)
+        )
+        return list(result.scalars().all())
+
+    async def list_alergenos(self) -> list[Alergeno]:
+        result = await self.session.execute(select(Alergeno).order_by(Alergeno.nome))
+        return list(result.scalars().all())
+
+    async def validar_referencias_alimenticias(
+        self, ingrediente_ids: set[int], alergeno_ids: set[int]
+    ) -> bool:
+        if ingrediente_ids:
+            encontrados = await self.session.scalar(
+                select(func.count(Ingrediente.id)).where(
+                    Ingrediente.id.in_(ingrediente_ids)
+                )
+            )
+            if int(encontrados or 0) != len(ingrediente_ids):
+                return False
+        if alergeno_ids:
+            encontrados = await self.session.scalar(
+                select(func.count(Alergeno.id)).where(Alergeno.id.in_(alergeno_ids))
+            )
+            if int(encontrados or 0) != len(alergeno_ids):
+                return False
+        return True
 
     async def get_lote(self, lote_id: int) -> Lote | None:
         return await self.session.get(Lote, lote_id)
@@ -151,67 +151,106 @@ class ProdutoRepository(BaseRepository[Produto]):
         )
         return list(result.scalars().all())
 
-    async def estatisticas_produtos(
-        self, produto_ids: list[int]
-    ) -> dict[int, tuple[float, object | None]]:
-        """Retorna saldo e validade mais próxima sem consultas N+1."""
+    async def saldos_produtos(self, produto_ids: list[int]) -> dict[int, float]:
+        """Retorna o saldo total dos produtos sem criar outra fonte de verdade."""
         if not produto_ids:
             return {}
         saldos_rows = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT produto_id, COALESCE(SUM(quantidade), 0)
                 FROM estoque_produto
+                WHERE produto_id = ANY(CAST(:produto_ids AS bigint[]))
                 GROUP BY produto_id
-                """
-            )
+                """),
+            {"produto_ids": produto_ids},
         )
-        saldos = {int(row[0]): float(row[1]) for row in saldos_rows.fetchall()}
-        validades_rows = await self.session.execute(
-            text(
-                """
-                SELECT ep.produto_id, MIN(l.data_validade)
-                FROM estoque_produto ep
-                JOIN lotes l ON l.id = ep.lote_id
-                WHERE ep.quantidade > 0
-                  AND l.ativo = TRUE
-                  AND l.excluido_em IS NULL
-                  AND l.data_validade IS NOT NULL
-                GROUP BY ep.produto_id
-                """
+        return {int(row[0]): float(row[1]) for row in saldos_rows.fetchall()}
+
+    async def contagem_lotes_produtos(self, produto_ids: list[int]) -> dict[int, int]:
+        """Retorna a contagem de lotes não excluídos de cada produto."""
+        if not produto_ids:
+            return {}
+        rows = await self.session.execute(
+            select(Lote.produto_id, func.count(Lote.id))
+            .where(
+                Lote.produto_id.in_(produto_ids),
+                Lote.excluido_em.is_(None),
             )
+            .group_by(Lote.produto_id)
         )
-        validades = {int(row[0]): row[1] for row in validades_rows.fetchall()}
-        return {
-            produto_id: (saldos.get(produto_id, 0.0), validades.get(produto_id))
-            for produto_id in produto_ids
-        }
+        return {int(row[0]): int(row[1]) for row in rows.all()}
+
+    async def estoques_lotes(self, produto_id: int) -> dict[int, list[dict]]:
+        """Agrupa o saldo de cada lote pelas localizações das entradas."""
+        rows = await self.session.execute(
+            text("""
+                SELECT
+                    ee.lote_id,
+                    ee.localizacao_id,
+                    le.prateleira_id,
+                    cr.nome AS corredor,
+                    s.nome AS seccao,
+                    pr.nome AS prateleira,
+                    pr.nivel,
+                    pr.descricao,
+                    SUM(ee.quantidade) AS quantidade
+                FROM estoque_entrada ee
+                JOIN localizacoes_estoque le ON le.id = ee.localizacao_id
+                JOIN prateleiras pr ON pr.id = le.prateleira_id
+                JOIN seccoes s ON s.id = pr.seccao_id
+                JOIN corredores cr ON cr.id = s.corredor_id
+                WHERE ee.produto_id = :produto_id
+                  AND ee.quantidade > 0
+                GROUP BY
+                    ee.lote_id,
+                    ee.localizacao_id,
+                    le.prateleira_id,
+                    cr.nome,
+                    s.nome,
+                    pr.nome,
+                    pr.nivel,
+                    pr.descricao
+                ORDER BY ee.lote_id, cr.nome, s.nome, pr.nome
+                """),
+            {"produto_id": produto_id},
+        )
+        por_lote: dict[int, list[dict]] = {}
+        for row in rows.mappings():
+            por_lote.setdefault(int(row["lote_id"]), []).append(
+                {
+                    "id": int(row["localizacao_id"]),
+                    "prateleira_id": int(row["prateleira_id"]),
+                    "corredor": row["corredor"],
+                    "seccao": row["seccao"],
+                    "prateleira": row["prateleira"],
+                    "nivel": row["nivel"],
+                    "descricao": row["descricao"],
+                    "quantidade": float(row["quantidade"]),
+                }
+            )
+        return por_lote
 
     # ------------------------------------------------------------------
     # Saldo / estoque (via as views criadas na migration)
     # ------------------------------------------------------------------
     async def saldo_produto(self, produto_id: int) -> float:
         row = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT COALESCE(SUM(quantidade), 0)
                 FROM estoque_produto
                 WHERE produto_id = :pid
-                """
-            ),
+                """),
             {"pid": produto_id},
         )
         return float(row.scalar() or 0)
 
     async def saldo_lote(self, lote_id: int) -> float:
         row = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT COALESCE(SUM(quantidade), 0)
                 FROM estoque_produto
                 WHERE lote_id = :lid
-                """
-            ),
+                """),
             {"lid": lote_id},
         )
         return float(row.scalar() or 0)

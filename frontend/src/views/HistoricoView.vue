@@ -181,7 +181,7 @@ export default defineComponent({
             <th>Movimento</th>
             <th>Produto</th>
             <th>Quantidade</th>
-            <th>Preço</th>
+            <th>Preço da movimentação</th>
             <th>Responsável</th>
             <th>Observação</th>
           </tr>
@@ -200,7 +200,12 @@ export default defineComponent({
             </td>
             <td>{{ movement.produto_nome ?? '—' }}</td>
             <td>{{ formatQuantity(movement.quantidade) }}</td>
-            <td>{{ formatCurrency(movement.preco) }}</td>
+            <td>
+              <div>{{ formatCurrency(movement.preco) }}</div>
+              <div class="text-caption text-medium-emphasis">
+                {{ movement.tipo === 'entrada' ? 'Custo da entrada' : 'Preço da venda' }}
+              </div>
+            </td>
             <td>{{ movement.responsavel_email ?? '—' }}</td>
             <td>{{ movement.observacao ?? '—' }}</td>
           </tr>

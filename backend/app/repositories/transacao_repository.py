@@ -79,26 +79,22 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
     # ------------------------------------------------------------------
     async def saldo_entrada(self, entrada_id: int) -> float:
         row = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT COALESCE(quantidade, 0)
                 FROM estoque_entrada
                 WHERE entrada_id = :eid
-                """
-            ),
+                """),
             {"eid": entrada_id},
         )
         return float(row.scalar() or 0)
 
     async def saldo_produto(self, produto_id: int) -> float:
         row = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT COALESCE(SUM(quantidade), 0)
                 FROM estoque_produto
                 WHERE produto_id = :pid
-                """
-            ),
+                """),
             {"pid": produto_id},
         )
         return float(row.scalar() or 0)
@@ -109,8 +105,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         filtro_produto = (
             " AND produto_id = :produto_id" if produto_id is not None else ""
         )
-        query = text(
-            f"""
+        query = text(f"""
             SELECT
                 entrada_id,
                 lote_id,
@@ -121,8 +116,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             FROM estoque_entrada
             WHERE quantidade > 0{filtro_produto}
             ORDER BY produto_id, lote_id, entrada_id
-            """
-        )
+            """)
         params = {"produto_id": produto_id} if produto_id is not None else {}
         rows = await self.session.execute(query, params)
         return [
@@ -138,25 +132,49 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         ]
 
     async def estoque_atual_por_produto(self) -> list[dict]:
-        """Linhas agregadas do estoque por produto (view estoque_produto)."""
+        """Linhas agregadas do estoque por produto com total e status de validade dos lotes."""
 
-        rows = await self.session.execute(
-            text(
-                """
-                SELECT p.id, p.nome, COALESCE(e.qtd, 0) AS qtd
+        rows = await self.session.execute(text("""
+                SELECT
+                    p.id,
+                    p.nome,
+                    COALESCE(e.qtd, 0) AS qtd,
+                    COALESCE(l.total_lotes, 0) AS total_lotes,
+                    COALESCE(lv.lotes_vencendo, 0) AS lotes_vencendo,
+                    COALESCE(lv.lotes_vencidos, 0) AS lotes_vencidos
                 FROM produtos p
                 LEFT JOIN (
                     SELECT produto_id, SUM(quantidade) AS qtd
                     FROM estoque_produto
                     GROUP BY produto_id
                 ) e ON e.produto_id = p.id
+                LEFT JOIN (
+                    SELECT produto_id, COUNT(id) AS total_lotes
+                    FROM lotes
+                    WHERE excluido_em IS NULL
+                    GROUP BY produto_id
+                ) l ON l.produto_id = p.id
+                LEFT JOIN (
+                    SELECT
+                        produto_id,
+                        COUNT(CASE WHEN data_validade IS NOT NULL AND data_validade >= CURRENT_DATE AND data_validade <= (CURRENT_DATE + 30) THEN 1 END) AS lotes_vencendo,
+                        COUNT(CASE WHEN data_validade IS NOT NULL AND data_validade < CURRENT_DATE THEN 1 END) AS lotes_vencidos
+                    FROM lotes
+                    WHERE excluido_em IS NULL
+                    GROUP BY produto_id
+                ) lv ON lv.produto_id = p.id
                 WHERE p.excluido_em IS NULL
                 ORDER BY p.nome, p.id
-                """
-            )
-        )
+                """))
         return [
-            {"produto_id": r[0], "produto_nome": r[1], "quantidade": float(r[2])}
+            {
+                "produto_id": r[0],
+                "produto_nome": r[1],
+                "quantidade": float(r[2]),
+                "total_lotes": int(r[3]),
+                "lotes_vencendo": int(r[4]),
+                "lotes_vencidos": int(r[5]),
+            }
             for r in rows.fetchall()
         ]
 
@@ -183,7 +201,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             RegistroEntrada.lote_id.label("lote_id"),
             RegistroEntrada.quantidade.label("quantidade"),
             RegistroEntrada.data_entrada.label("data_movimento"),
-            RegistroEntrada.preco_sugerido.label("preco"),
+            RegistroEntrada.preco_custo.label("preco"),
             RegistroEntrada.observacao.label("observacao"),
             RegistroEntrada.funcionario_id.label("funcionario_id"),
         ).join(Lote, Lote.id == RegistroEntrada.lote_id)

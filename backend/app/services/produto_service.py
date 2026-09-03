@@ -1,24 +1,37 @@
 """Service de produtos, lotes e catálogo.
 
-Responsável por montar a listagem com saldo de estoque e alertas visuais
-(validade próxima < 30 dias, estoque baixo/zerado), além do CRUD.
+Responsável pelo CRUD, pela composição alimentícia, pelo saldo dos produtos e
+pela situação individual de validade e estoque dos lotes.
 """
 
 from datetime import date
-from typing import cast
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.produto import Lote, Produto
+from app.models.produto import (
+    Lote,
+    Nutriente,
+    Produto,
+    ProdutoAlergeno,
+    ProdutoIngrediente,
+)
 from app.repositories.produto_repository import ProdutoRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.produto import (
+    AlergenoOut,
     CategoriaOut,
+    IngredienteOut,
+    LocalizacaoOut,
     LoteCreate,
+    LoteLocalizacaoOut,
     LoteOut,
+    NutrienteInput,
+    NutrienteOut,
     ProdutoCreate,
+    ProdutoIngredienteInput,
+    ProdutoIngredienteOut,
     ProdutoOut,
     ProdutoUpdate,
     UnidadeMedidaOut,
@@ -27,7 +40,7 @@ from app.schemas.produto import (
 # Limiar em dias para considerar validade "próxima do vencimento".
 LIMIAR_VALIDADE_DIAS = 30
 LIMIAR_ESTOQUE_BAIXO = 5
-STATUS_VALIDOS = {"ok", "validade_proxima", "vencido", "estoque_baixo", "zerado"}
+STATUS_VALIDOS = {"ok", "estoque_baixo", "zerado"}
 
 
 class ProdutoService:
@@ -38,24 +51,18 @@ class ProdutoService:
         self.repo = ProdutoRepository(session)
 
     # ------------------------------------------------------------------
-    # Montagem do DTO de listagem com alertas
+    # Montagem dos DTOs
     # ------------------------------------------------------------------
     def _enriquecer(
         self,
         produto: Produto,
         quantidade: float = 0,
-        data_validade: date | None = None,
+        total_lotes: int = 0,
     ) -> ProdutoOut:
         status = "ok"
-        if data_validade is not None:
-            dias = (data_validade - date.today()).days
-            if dias < 0:
-                status = "vencido"
-            elif dias < LIMIAR_VALIDADE_DIAS:
-                status = "validade_proxima"
-        if status == "ok" and quantidade <= 0:
+        if quantidade <= 0:
             status = "zerado"
-        elif status == "ok" and quantidade < LIMIAR_ESTOQUE_BAIXO:
+        elif quantidade < LIMIAR_ESTOQUE_BAIXO:
             status = "estoque_baixo"
 
         return ProdutoOut(
@@ -82,9 +89,136 @@ class ProdutoService:
                 else None
             ),
             quantidade_estoque=quantidade,
-            data_validade=data_validade,
             status=status,
+            total_lotes=total_lotes,
+            nutrientes=[
+                NutrienteOut(
+                    id=nutriente.id,
+                    nome=nutriente.nome,
+                    unidade=nutriente.unidade,
+                    valor=float(nutriente.valor),
+                )
+                for nutriente in produto.nutrientes
+            ],
+            ingredientes=[
+                ProdutoIngredienteOut(
+                    ingrediente_id=associacao.ingrediente_id,
+                    ordem=associacao.ordem,
+                    nome=associacao.ingrediente.nome,
+                    descricao=associacao.ingrediente.descricao,
+                )
+                for associacao in produto.ingredientes_associacoes
+            ],
+            alergenos=[
+                AlergenoOut.model_validate(associacao.alergeno, from_attributes=True)
+                for associacao in produto.alergenos_associacoes
+            ],
         )
+
+    @staticmethod
+    def _localizacao_out(localizacao) -> LocalizacaoOut:
+        prateleira = localizacao.prateleira
+        seccao = prateleira.seccao
+        return LocalizacaoOut(
+            id=localizacao.id,
+            prateleira_id=localizacao.prateleira_id,
+            corredor=seccao.corredor.nome,
+            seccao=seccao.nome,
+            prateleira=prateleira.nome,
+            nivel=prateleira.nivel,
+            descricao=prateleira.descricao,
+        )
+
+    @staticmethod
+    def _lote_out(lote: Lote, localizacoes: list[dict]) -> LoteOut:
+        quantidade = sum(item["quantidade"] for item in localizacoes)
+        dias_para_vencer = None
+        status_validade = "sem_validade"
+        if lote.data_validade is not None:
+            dias_para_vencer = (lote.data_validade - date.today()).days
+            if dias_para_vencer < 0:
+                status_validade = "vencido"
+            elif dias_para_vencer < LIMIAR_VALIDADE_DIAS:
+                status_validade = "validade_proxima"
+            else:
+                status_validade = "normal"
+        return LoteOut(
+            id=lote.id,
+            produto_id=lote.produto_id,
+            numero_lote=lote.numero_lote,
+            data_producao=lote.data_producao,
+            data_validade=lote.data_validade,
+            ativo=lote.ativo,
+            quantidade_estoque=quantidade,
+            status_estoque="com_estoque" if quantidade > 0 else "sem_estoque",
+            dias_para_vencer=dias_para_vencer,
+            status_validade=status_validade,
+            localizacoes=[
+                LoteLocalizacaoOut.model_validate(item) for item in localizacoes
+            ],
+        )
+
+    async def _validar_referencias_alimenticias(
+        self,
+        ingredientes: list[ProdutoIngredienteInput],
+        alergeno_ids: list[int],
+    ) -> None:
+        validas = await self.repo.validar_referencias_alimenticias(
+            {item.ingrediente_id for item in ingredientes}, set(alergeno_ids)
+        )
+        if not validas:
+            raise HTTPException(
+                status_code=400,
+                detail="Ingrediente ou alérgeno informado não existe",
+            )
+
+    @staticmethod
+    def _aplicar_composicao(
+        produto: Produto,
+        *,
+        nutrientes: list[NutrienteInput] | None = None,
+        ingredientes: list[ProdutoIngredienteInput] | None = None,
+        alergeno_ids: list[int] | None = None,
+    ) -> None:
+        if nutrientes is not None:
+            produto.nutrientes = [Nutriente(**item.model_dump()) for item in nutrientes]
+        if ingredientes is not None:
+            produto.ingredientes_associacoes = [
+                ProdutoIngrediente(**item.model_dump()) for item in ingredientes
+            ]
+        if alergeno_ids is not None:
+            produto.alergenos_associacoes = [
+                ProdutoAlergeno(alergeno_id=alergeno_id) for alergeno_id in alergeno_ids
+            ]
+
+    async def _substituir_composicao(
+        self,
+        produto: Produto,
+        *,
+        nutrientes: list[NutrienteInput] | None,
+        ingredientes: list[ProdutoIngredienteInput] | None,
+        alergeno_ids: list[int] | None,
+    ) -> None:
+        if nutrientes is not None:
+            produto.nutrientes.clear()
+        if ingredientes is not None:
+            produto.ingredientes_associacoes.clear()
+        if alergeno_ids is not None:
+            produto.alergenos_associacoes.clear()
+        if any(item is not None for item in (nutrientes, ingredientes, alergeno_ids)):
+            await self.session.flush()
+        if nutrientes is not None:
+            produto.nutrientes.extend(
+                Nutriente(**item.model_dump()) for item in nutrientes
+            )
+        if ingredientes is not None:
+            produto.ingredientes_associacoes.extend(
+                ProdutoIngrediente(**item.model_dump()) for item in ingredientes
+            )
+        if alergeno_ids is not None:
+            produto.alergenos_associacoes.extend(
+                ProdutoAlergeno(alergeno_id=alergeno_id) for alergeno_id in alergeno_ids
+            )
 
     # ------------------------------------------------------------------
     # Catálogo
@@ -93,10 +227,20 @@ class ProdutoService:
         unidades = await self.repo.list_unidades()
         categorias = await self.repo.list_categorias()
         localizacoes = await self.repo.list_localizacoes()
+        ingredientes = await self.repo.list_ingredientes()
+        alergenos = await self.repo.list_alergenos()
         return {
             "unidades_medida": unidades,
             "categorias": categorias,
-            "localizacoes": localizacoes,
+            "localizacoes": [self._localizacao_out(item) for item in localizacoes],
+            "ingredientes": [
+                IngredienteOut.model_validate(item, from_attributes=True)
+                for item in ingredientes
+            ],
+            "alergenos": [
+                AlergenoOut.model_validate(item, from_attributes=True)
+                for item in alergenos
+            ],
         }
 
     # ------------------------------------------------------------------
@@ -120,14 +264,14 @@ class ProdutoService:
         itens = await self.repo.listar_filtros(
             nome=nome, preco_min=preco_min, preco_max=preco_max
         )
-        estatisticas = await self.repo.estatisticas_produtos([p.id for p in itens])
+        p_ids = [p.id for p in itens]
+        saldos = await self.repo.saldos_produtos(p_ids)
+        lotes_counts = await self.repo.contagem_lotes_produtos(p_ids)
         out = [
             self._enriquecer(
                 p,
-                *cast(
-                    tuple[float, date | None],
-                    estatisticas.get(p.id, (0.0, None)),
-                ),
+                saldos.get(p.id, 0.0),
+                lotes_counts.get(p.id, 0),
             )
             for p in itens
         ]
@@ -141,11 +285,13 @@ class ProdutoService:
         produto = await self.repo.get_com_relacionamentos(produto_id)
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
-        estatisticas = await self.repo.estatisticas_produtos([produto.id])
-        quantidade, data_validade = cast(
-            tuple[float, date | None], estatisticas.get(produto.id, (0.0, None))
+        saldos = await self.repo.saldos_produtos([produto.id])
+        lotes_counts = await self.repo.contagem_lotes_produtos([produto.id])
+        return self._enriquecer(
+            produto,
+            saldos.get(produto.id, 0.0),
+            lotes_counts.get(produto.id, 0),
         )
-        return self._enriquecer(produto, quantidade, data_validade)
 
     # ------------------------------------------------------------------
     # CRUD
@@ -160,10 +306,26 @@ class ProdutoService:
                 status_code=400,
                 detail="Unidade, categoria ou localização informada não existe",
             )
+        await self._validar_referencias_alimenticias(
+            data.ingredientes, data.alergeno_ids
+        )
         lote_inicial = data.lote_inicial
         produto = Produto(
-            **data.model_dump(exclude={"lote_inicial"}),
+            **data.model_dump(
+                exclude={
+                    "lote_inicial",
+                    "nutrientes",
+                    "ingredientes",
+                    "alergeno_ids",
+                }
+            ),
             funcionario_id=funcionario_id,
+        )
+        self._aplicar_composicao(
+            produto,
+            nutrientes=data.nutrientes,
+            ingredientes=data.ingredientes,
+            alergeno_ids=data.alergeno_ids,
         )
         try:
             await self.repo.add(produto)
@@ -183,7 +345,10 @@ class ProdutoService:
         produto = await self.repo.get_com_relacionamentos(produto_id)
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
-        valores = data.model_dump(exclude_unset=True)
+        valores = data.model_dump(
+            exclude_unset=True,
+            exclude={"nutrientes", "ingredientes", "alergeno_ids"},
+        )
         codigo = valores.get("codigo")
         if codigo is not None and codigo != produto.codigo:
             existente = await self.repo.get_by_codigo(codigo)
@@ -200,9 +365,26 @@ class ProdutoService:
                 status_code=400,
                 detail="Unidade, categoria ou localização informada não existe",
             )
-        for k, v in valores.items():
-            setattr(produto, k, v)
+        ingredientes = (
+            data.ingredientes if "ingredientes" in data.model_fields_set else None
+        )
+        alergeno_ids = (
+            data.alergeno_ids if "alergeno_ids" in data.model_fields_set else None
+        )
+        await self._validar_referencias_alimenticias(
+            ingredientes or [], alergeno_ids or []
+        )
         try:
+            for k, v in valores.items():
+                setattr(produto, k, v)
+            await self._substituir_composicao(
+                produto,
+                nutrientes=(
+                    data.nutrientes if "nutrientes" in data.model_fields_set else None
+                ),
+                ingredientes=ingredientes,
+                alergeno_ids=alergeno_ids,
+            )
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
@@ -241,11 +423,12 @@ class ProdutoService:
             raise HTTPException(
                 status_code=409, detail="Número de lote já cadastrado"
             ) from exc
-        return LoteOut.model_validate(lote, from_attributes=True)
+        return self._lote_out(lote, [])
 
     async def listar_lotes(self, produto_id: int) -> list[LoteOut]:
         produto = await self.repo.get(produto_id)
         if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         lotes = await self.repo.list_lotes_do_produto(produto_id)
-        return [LoteOut.model_validate(lote, from_attributes=True) for lote in lotes]
+        estoques = await self.repo.estoques_lotes(produto_id)
+        return [self._lote_out(lote, estoques.get(lote.id, [])) for lote in lotes]

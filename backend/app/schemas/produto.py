@@ -1,6 +1,7 @@
 """DTOs do módulo de produtos, lotes e catálogo."""
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -21,11 +22,52 @@ class CategoriaOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class IngredienteOut(BaseModel):
+    id: int
+    nome: str
+    descricao: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class AlergenoOut(BaseModel):
+    id: int
+    nome: str
+    descricao: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class LocalizacaoOut(BaseModel):
     id: int
     prateleira_id: int
+    corredor: str
+    seccao: str
+    prateleira: str
+    nivel: int | None = None
+    descricao: str | None = None
+
+
+class NutrienteInput(BaseModel):
+    nome: str = Field(..., min_length=1, max_length=50)
+    unidade: str = Field(..., min_length=1, max_length=10)
+    valor: float = Field(..., ge=0)
+
+
+class NutrienteOut(NutrienteInput):
+    id: int
 
     model_config = {"from_attributes": True}
+
+
+class ProdutoIngredienteInput(BaseModel):
+    ingrediente_id: int
+    ordem: int = Field(..., gt=0)
+
+
+class ProdutoIngredienteOut(ProdutoIngredienteInput):
+    nome: str
+    descricao: str | None = None
 
 
 class LoteInput(BaseModel):
@@ -54,6 +96,9 @@ class ProdutoCreate(BaseModel):
     localizacao_id: int
     ativo: bool = True
     lote_inicial: LoteInput | None = None
+    nutrientes: list[NutrienteInput] = Field(default_factory=list)
+    ingredientes: list[ProdutoIngredienteInput] = Field(default_factory=list)
+    alergeno_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _validade_obrigatoria_para_perecivel(self) -> "ProdutoCreate":
@@ -63,7 +108,21 @@ class ProdutoCreate(BaseModel):
             raise ValueError(
                 "Produto perecível exige lote inicial com data de validade"
             )
+        self._validar_composicao()
         return self
+
+    def _validar_composicao(self) -> None:
+        nomes = [item.nome.strip().casefold() for item in self.nutrientes]
+        if len(nomes) != len(set(nomes)):
+            raise ValueError("Os nomes dos nutrientes não podem se repetir")
+        ingrediente_ids = [item.ingrediente_id for item in self.ingredientes]
+        ordens = [item.ordem for item in self.ingredientes]
+        if len(ingrediente_ids) != len(set(ingrediente_ids)):
+            raise ValueError("O mesmo ingrediente não pode ser selecionado duas vezes")
+        if len(ordens) != len(set(ordens)):
+            raise ValueError("A ordem dos ingredientes não pode se repetir")
+        if len(self.alergeno_ids) != len(set(self.alergeno_ids)):
+            raise ValueError("O mesmo alérgeno não pode ser selecionado duas vezes")
 
 
 class ProdutoUpdate(BaseModel):
@@ -79,6 +138,30 @@ class ProdutoUpdate(BaseModel):
     categoria_id: int | None = None
     localizacao_id: int | None = None
     ativo: bool | None = None
+    nutrientes: list[NutrienteInput] | None = None
+    ingredientes: list[ProdutoIngredienteInput] | None = None
+    alergeno_ids: list[int] | None = None
+
+    @model_validator(mode="after")
+    def _composicao_sem_repeticoes(self) -> "ProdutoUpdate":
+        if self.nutrientes is not None:
+            nomes = [item.nome.strip().casefold() for item in self.nutrientes]
+            if len(nomes) != len(set(nomes)):
+                raise ValueError("Os nomes dos nutrientes não podem se repetir")
+        if self.ingredientes is not None:
+            ingrediente_ids = [item.ingrediente_id for item in self.ingredientes]
+            ordens = [item.ordem for item in self.ingredientes]
+            if len(ingrediente_ids) != len(set(ingrediente_ids)):
+                raise ValueError(
+                    "O mesmo ingrediente não pode ser selecionado duas vezes"
+                )
+            if len(ordens) != len(set(ordens)):
+                raise ValueError("A ordem dos ingredientes não pode se repetir")
+        if self.alergeno_ids is not None and len(self.alergeno_ids) != len(
+            set(self.alergeno_ids)
+        ):
+            raise ValueError("O mesmo alérgeno não pode ser selecionado duas vezes")
+        return self
 
 
 class ProdutoOut(BaseModel):
@@ -96,16 +179,22 @@ class ProdutoOut(BaseModel):
     ativo: bool
     unidade_medida: UnidadeMedidaOut | None = None
     categoria: CategoriaOut | None = None
-    # Campos preenchidos no service para a listagem do frontend:
     quantidade_estoque: float = 0
-    data_validade: date | None = None
-    status: str = "ok"  # ok | validade_proxima | vencido | estoque_baixo | zerado
+    status: Literal["ok", "estoque_baixo", "zerado"] = "ok"
+    total_lotes: int = 0
+    nutrientes: list[NutrienteOut] = Field(default_factory=list)
+    ingredientes: list[ProdutoIngredienteOut] = Field(default_factory=list)
+    alergenos: list[AlergenoOut] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
 
 class LoteCreate(LoteInput):
     """Criação de lote (validade é propriedade do lote)."""
+
+
+class LoteLocalizacaoOut(LocalizacaoOut):
+    quantidade: float
 
 
 class LoteOut(BaseModel):
@@ -115,8 +204,13 @@ class LoteOut(BaseModel):
     data_producao: date
     data_validade: date | None
     ativo: bool
-
-    model_config = {"from_attributes": True}
+    quantidade_estoque: float = 0
+    status_estoque: Literal["com_estoque", "sem_estoque"] = "sem_estoque"
+    dias_para_vencer: int | None = None
+    status_validade: Literal[
+        "normal", "validade_proxima", "vencido", "sem_validade"
+    ] = "sem_validade"
+    localizacoes: list[LoteLocalizacaoOut] = Field(default_factory=list)
 
 
 class ListaCatalogo(BaseModel):
@@ -125,3 +219,5 @@ class ListaCatalogo(BaseModel):
     unidades_medida: list[UnidadeMedidaOut]
     categorias: list[CategoriaOut]
     localizacoes: list[LocalizacaoOut]
+    ingredientes: list[IngredienteOut]
+    alergenos: list[AlergenoOut]

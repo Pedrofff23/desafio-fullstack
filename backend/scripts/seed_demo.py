@@ -320,14 +320,41 @@ async def _localizacao(session, idx: int) -> int:
 # Produto helper
 # ---------------------------------------------------------------------------
 
+PRECOS_PRODUTOS = {
+    "PROD001": 5.90,
+    "PROD002": 4.90,
+    "PROD003": 12.90,
+    "PROD004": 1.20,
+    "PROD005": 32.90,
+    "PROD006": 7.50,
+    "PROD007": 11.90,
+    "PROD008": 22.90,
+    "PROD009": 26.90,
+    "PROD010": 8.90,
+    "PROD011": 4.50,
+    "PROD012": 22.90,
+    "PROD013": 29.90,
+    "PROD014": 6.99,
+    "PROD015": 10.99,
+    "PROD016": 6.50,
+    "PROD017": 4.90,
+    "PROD018": 5.50,
+    "PROD019": 14.90,
+    "PROD020": 4.50,
+    "PROD021": 29.90,
+    "PROD022": 9.90,
+}
+
 
 async def _inserir_produto(session, codigo, nome, descricao, um, cat, loc, func_id):
+    preco = PRECOS_PRODUTOS[codigo]
     pid = await _scalar(
         session,
         """
-        INSERT INTO produtos (codigo, nome, descricao, unidade_medida_id, categoria_id,
-                              localizacao_id, funcionario_id, ativo)
-        VALUES (:c, :n, :d, :um, :cat, :loc, :func, TRUE)
+        INSERT INTO produtos (codigo, nome, descricao, preco, perecivel,
+                              unidade_medida_id, categoria_id, localizacao_id,
+                              funcionario_id, ativo)
+        VALUES (:c, :n, :d, :preco, TRUE, :um, :cat, :loc, :func, TRUE)
         ON CONFLICT (codigo) DO NOTHING
         RETURNING id
     """,
@@ -335,6 +362,7 @@ async def _inserir_produto(session, codigo, nome, descricao, um, cat, loc, func_
             "c": codigo,
             "n": nome,
             "d": descricao,
+            "preco": preco,
             "um": um,
             "cat": cat,
             "loc": loc,
@@ -344,6 +372,10 @@ async def _inserir_produto(session, codigo, nome, descricao, um, cat, loc, func_
     if pid is None:
         pid = await _scalar(
             session, "SELECT id FROM produtos WHERE codigo = :c", {"c": codigo}
+        )
+        await session.execute(
+            text("UPDATE produtos SET preco = :preco, perecivel = TRUE WHERE id = :id"),
+            {"preco": preco, "id": pid},
         )
     return pid
 
@@ -886,23 +918,6 @@ async def main() -> None:
         await session.flush()
 
         await seed_produtos(session, func_ids, fornec_ids)
-
-        # O preço atual pertence ao produto; os valores da entrada ficam como
-        # histórico de compra. Os dados demo possuem lotes com validade.
-        await session.execute(
-            text("""
-            UPDATE produtos p
-               SET preco = dados.preco,
-                   perecivel = TRUE
-              FROM (
-                    SELECT l.produto_id, MAX(re.preco_sugerido) AS preco
-                      FROM lotes l
-                      JOIN registros_entrada re ON re.lote_id = l.id
-                     GROUP BY l.produto_id
-                   ) dados
-             WHERE p.id = dados.produto_id
-        """)
-        )
 
         await session.commit()
 
