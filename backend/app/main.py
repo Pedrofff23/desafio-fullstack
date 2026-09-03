@@ -2,7 +2,7 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.openapi import API_DESCRIPTION, OPENAPI_TAGS, SYSTEM_TAG
@@ -35,13 +35,18 @@ async def lifespan(app: FastAPI):
     await db_manager.close()
 
 
-app = FastAPI(
-    title=settings.APP_NAME,
-    description=API_DESCRIPTION,
-    version=settings.APP_VERSION,
-    openapi_tags=OPENAPI_TAGS,
-    lifespan=lifespan,
-)
+SHOW_DOCS_IN = {"local", "staging", "dev"}
+app_kwargs = {
+    "title": settings.APP_NAME,
+    "description": API_DESCRIPTION,
+    "version": settings.APP_VERSION,
+    "openapi_tags": OPENAPI_TAGS,
+    "lifespan": lifespan,
+}
+if settings.ENVIRONMENT not in SHOW_DOCS_IN:
+    app_kwargs["openapi_url"] = None
+
+app = FastAPI(**app_kwargs)
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,9 +59,15 @@ app.add_middleware(
 app.include_router(api_router)
 
 
-@app.get("/health", tags=[SYSTEM_TAG], summary="Verificar a saúde da aplicação")
+@app.get(
+    "/health",
+    status_code=status.HTTP_200_OK,
+    tags=[SYSTEM_TAG],
+    summary="Verificar a saúde da aplicação",
+)
 async def health_check():
     from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError
 
     from app.core.database import db_manager
 
@@ -64,6 +75,6 @@ async def health_check():
     try:
         async with db_manager.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-    except Exception:  # noqa: BLE001
+    except (SQLAlchemyError, OSError):
         db_status = "error"
     return {"status": "ok", "version": settings.APP_VERSION, "database": db_status}

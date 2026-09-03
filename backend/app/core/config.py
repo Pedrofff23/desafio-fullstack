@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Aplicação
     APP_NAME: str = "Gerenciamento de Estoque API"
     APP_VERSION: str = "1.0.0"
+    ENVIRONMENT: str = "local"
 
 
 @lru_cache

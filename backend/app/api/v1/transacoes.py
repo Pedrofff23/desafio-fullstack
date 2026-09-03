@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -38,6 +38,7 @@ router = APIRouter(prefix="/transacoes")
 @router.get(
     "/fornecedores",
     response_model=list[FornecedorOut],
+    status_code=status.HTTP_200_OK,
     tags=[SUPPLIERS_TAG],
     summary="Listar fornecedores",
 )
@@ -50,9 +51,17 @@ async def listar_fornecedores(
 @router.post(
     "/fornecedores",
     response_model=FornecedorOut,
-    status_code=201,
+    status_code=status.HTTP_201_CREATED,
     tags=[SUPPLIERS_TAG],
     summary="Cadastrar fornecedor",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A cidade informada não pertence ao estado selecionado"
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Fornecedor, contato ou endereço já cadastrado"
+        },
+    },
 )
 async def criar_fornecedor(
     payload: FornecedorCreate,
@@ -70,9 +79,17 @@ async def criar_fornecedor(
 @router.post(
     "/entrada",
     response_model=RegistroEntradaOut,
-    status_code=201,
+    status_code=status.HTTP_201_CREATED,
     tags=[INVENTORY_MOVEMENTS_TAG],
     summary="Registrar entrada de estoque",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Localização inválida ou não informada"
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Lote, produto ou fornecedor não encontrado"
+        },
+    },
 )
 async def registrar_entrada(
     payload: RegistroEntradaCreate,
@@ -87,9 +104,13 @@ async def registrar_entrada(
 @router.post(
     "/saida",
     response_model=RegistroSaidaOut,
-    status_code=201,
+    status_code=status.HTTP_201_CREATED,
     tags=[INVENTORY_MOVEMENTS_TAG],
     summary="Registrar saída de estoque",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Saldo insuficiente para saída"},
+        status.HTTP_404_NOT_FOUND: {"description": "Entrada de estoque não encontrada"},
+    },
 )
 async def registrar_saida(
     payload: RegistroSaidaCreate,
@@ -109,6 +130,7 @@ async def registrar_saida(
 @router.get(
     "/entradas-disponiveis",
     response_model=list[EstoqueEntradaOut],
+    status_code=status.HTTP_200_OK,
     tags=[INVENTORY_QUERIES_TAG],
     summary="Listar entradas com saldo disponível",
 )
@@ -123,6 +145,7 @@ async def entradas_disponiveis(
 @router.get(
     "/estoque",
     response_model=PaginatedResponse[EstoqueProdutoOut],
+    status_code=status.HTTP_200_OK,
     tags=[INVENTORY_QUERIES_TAG],
     summary="Consultar estoque atual por produto",
 )
@@ -138,6 +161,7 @@ async def estoque_atual(
 @router.get(
     "/historico",
     response_model=PaginatedResponse[MovimentoOut],
+    status_code=status.HTTP_200_OK,
     tags=[INVENTORY_QUERIES_TAG],
     summary="Consultar histórico de movimentações",
 )

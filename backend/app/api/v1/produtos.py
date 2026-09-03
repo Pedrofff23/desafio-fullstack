@@ -1,6 +1,6 @@
 """Rotas de CRUD de produtos e lotes."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -24,6 +24,7 @@ router = APIRouter(prefix="/produtos")
 @router.get(
     "/catalogo",
     response_model=ListaCatalogo,
+    status_code=status.HTTP_200_OK,
     tags=[CATALOGS_TAG],
     summary="Listar dados auxiliares de produtos",
 )
@@ -34,8 +35,14 @@ async def catalogo(db: AsyncSession = Depends(get_db), _=Depends(get_current_use
 @router.get(
     "",
     response_model=PaginatedResponse[ProdutoOut],
+    status_code=status.HTTP_200_OK,
     tags=[PRODUCTS_TAG],
     summary="Listar produtos",
+    responses={
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "description": "Parâmetros de filtro inválidos"
+        },
+    },
 )
 async def listar(
     page: int = Query(1, ge=1),
@@ -60,9 +67,13 @@ async def listar(
 @router.post(
     "",
     response_model=ProdutoOut,
-    status_code=201,
+    status_code=status.HTTP_201_CREATED,
     tags=[PRODUCTS_TAG],
     summary="Cadastrar produto",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Referências inválidas"},
+        status.HTTP_409_CONFLICT: {"description": "Código de produto já existe"},
+    },
 )
 async def criar(
     payload: ProdutoCreate,
@@ -78,8 +89,12 @@ async def criar(
 @router.get(
     "/{produto_id}",
     response_model=ProdutoOut,
+    status_code=status.HTTP_200_OK,
     tags=[PRODUCTS_TAG],
     summary="Obter produto",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
+    },
 )
 async def obter(
     produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
@@ -90,8 +105,13 @@ async def obter(
 @router.put(
     "/{produto_id}",
     response_model=ProdutoOut,
+    status_code=status.HTTP_200_OK,
     tags=[PRODUCTS_TAG],
     summary="Atualizar produto",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
+        status.HTTP_409_CONFLICT: {"description": "Código já em uso por outro produto"},
+    },
 )
 async def atualizar(
     produto_id: int,
@@ -105,8 +125,12 @@ async def atualizar(
 @router.delete(
     "/{produto_id}",
     response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
     tags=[PRODUCTS_TAG],
     summary="Excluir produto",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
+    },
 )
 async def excluir(
     produto_id: int,
@@ -125,8 +149,12 @@ async def excluir(
 @router.get(
     "/{produto_id}/lotes",
     response_model=list[LoteOut],
+    status_code=status.HTTP_200_OK,
     tags=[LOTS_TAG],
     summary="Listar lotes de um produto",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
+    },
 )
 async def listar_lotes(
     produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
@@ -137,9 +165,13 @@ async def listar_lotes(
 @router.post(
     "/{produto_id}/lotes",
     response_model=LoteOut,
-    status_code=201,
+    status_code=status.HTTP_201_CREATED,
     tags=[LOTS_TAG],
     summary="Cadastrar lote de um produto",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
+        status.HTTP_409_CONFLICT: {"description": "Lote já cadastrado"},
+    },
 )
 async def criar_lote(
     produto_id: int,
