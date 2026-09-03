@@ -3,39 +3,39 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class UnidadeMedidaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     sigla: str
     descricao: str
 
-    model_config = {"from_attributes": True}
-
 
 class CategoriaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     nome: str
     descricao: str | None
-
-    model_config = {"from_attributes": True}
 
 
 class IngredienteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     nome: str
     descricao: str | None
-
-    model_config = {"from_attributes": True}
 
 
 class AlergenoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     nome: str
     descricao: str | None
-
-    model_config = {"from_attributes": True}
 
 
 class LocalizacaoOut(BaseModel):
@@ -49,20 +49,20 @@ class LocalizacaoOut(BaseModel):
 
 
 class NutrienteInput(BaseModel):
-    nome: str = Field(..., min_length=1, max_length=50)
-    unidade: str = Field(..., min_length=1, max_length=10)
-    valor: float = Field(..., ge=0)
+    nome: str = Field(min_length=1, max_length=50)
+    unidade: str = Field(min_length=1, max_length=10)
+    valor: float = Field(ge=0)
 
 
 class NutrienteOut(NutrienteInput):
-    id: int
+    model_config = ConfigDict(from_attributes=True)
 
-    model_config = {"from_attributes": True}
+    id: int
 
 
 class ProdutoIngredienteInput(BaseModel):
     ingrediente_id: int
-    ordem: int = Field(..., gt=0)
+    ordem: int = Field(gt=0)
 
 
 class ProdutoIngredienteOut(ProdutoIngredienteInput):
@@ -71,7 +71,7 @@ class ProdutoIngredienteOut(ProdutoIngredienteInput):
 
 
 class LoteInput(BaseModel):
-    numero_lote: str = Field(..., min_length=1, max_length=50)
+    numero_lote: str = Field(min_length=1, max_length=50)
     data_producao: date
     data_validade: date | None = None
     ativo: bool = True
@@ -86,10 +86,10 @@ class LoteInput(BaseModel):
 class ProdutoCreate(BaseModel):
     """Cadastro de produto (código único, nome, categoria, unidade, localização)."""
 
-    codigo: str = Field(..., min_length=1, max_length=50)
-    nome: str = Field(..., min_length=2, max_length=150)
+    codigo: str = Field(min_length=1, max_length=50)
+    nome: str = Field(min_length=2, max_length=150)
     descricao: str | None = None
-    preco: float = Field(..., ge=0)
+    preco: float = Field(ge=0)
     perecivel: bool = False
     unidade_medida_id: int
     categoria_id: int
@@ -128,12 +128,12 @@ class ProdutoCreate(BaseModel):
 class ProdutoUpdate(BaseModel):
     """Edição de produto. A data de validade NÃO reside aqui (é do lote)."""
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
-    codigo: str | None = Field(None, min_length=1, max_length=50)
-    nome: str | None = Field(None, min_length=2, max_length=150)
+    codigo: str | None = Field(default=None, min_length=1, max_length=50)
+    nome: str | None = Field(default=None, min_length=2, max_length=150)
     descricao: str | None = None
-    preco: float | None = Field(None, ge=0)
+    preco: float | None = Field(default=None, ge=0)
     unidade_medida_id: int | None = None
     categoria_id: int | None = None
     localizacao_id: int | None = None
@@ -167,6 +167,8 @@ class ProdutoUpdate(BaseModel):
 class ProdutoOut(BaseModel):
     """Produto com relacionamentos e saldo de estoque para listagem."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     codigo: str
     nome: str
@@ -185,8 +187,6 @@ class ProdutoOut(BaseModel):
     nutrientes: list[NutrienteOut] = Field(default_factory=list)
     ingredientes: list[ProdutoIngredienteOut] = Field(default_factory=list)
     alergenos: list[AlergenoOut] = Field(default_factory=list)
-
-    model_config = {"from_attributes": True}
 
 
 class LoteCreate(LoteInput):

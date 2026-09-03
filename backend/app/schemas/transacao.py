@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.usuario import ContatoIn, ContatoOut, EnderecoIn, EnderecoOut
 
@@ -15,21 +15,21 @@ from app.schemas.usuario import ContatoIn, ContatoOut, EnderecoIn, EnderecoOut
 class FornecedorCreate(BaseModel):
     """Cadastro de fornecedor."""
 
-    nome_empresa: str = Field(..., min_length=2, max_length=150)
+    nome_empresa: str = Field(min_length=2, max_length=150)
     contato: ContatoIn
     endereco: EnderecoIn
     ativo: bool = True
 
 
 class FornecedorOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     nome_empresa: str
     ativo: bool
     data_cadastro: datetime
     contato: ContatoOut
     endereco: EnderecoOut
-
-    model_config = {"from_attributes": True}
 
 
 # ---------------------------------------------------------------------------
@@ -43,16 +43,19 @@ class RegistroEntradaCreate(BaseModel):
     lote_id: int
     fornecedor_id: int
     localizacao_id: int | None = Field(
-        None, description="Se omitida, usa a localização preferencial do produto"
+        default=None,
+        description="Se omitida, usa a localização preferencial do produto",
     )
-    quantidade: float = Field(..., gt=0)
+    quantidade: float = Field(gt=0)
     data_entrada: datetime | None = None
-    tipo_entrada: str = Field("compra", min_length=1, max_length=50)
-    observacao: str | None = Field(None, max_length=500)
-    preco_custo: float = Field(..., ge=0)
+    tipo_entrada: str = Field(default="compra", min_length=1, max_length=50)
+    observacao: str | None = Field(default=None, max_length=500)
+    preco_custo: float = Field(ge=0)
 
 
 class RegistroEntradaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     lote_id: int
     fornecedor_id: int
@@ -64,8 +67,6 @@ class RegistroEntradaOut(BaseModel):
     preco_custo: float
     funcionario_id: int
 
-    model_config = {"from_attributes": True}
-
 
 # ---------------------------------------------------------------------------
 # Saídas
@@ -76,13 +77,15 @@ class RegistroSaidaCreate(BaseModel):
     """Saída de estoque (vinculada a uma entrada com saldo disponível)."""
 
     entrada_id: int
-    quantidade: float = Field(..., gt=0)
+    quantidade: float = Field(gt=0)
     data_saida: datetime | None = None
-    tipo_saida: str = Field("venda", min_length=1, max_length=50)
-    preco_venda: float = Field(..., ge=0)
+    tipo_saida: str = Field(default="venda", min_length=1, max_length=50)
+    preco_venda: float = Field(ge=0)
 
 
 class RegistroSaidaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     entrada_id: int
     quantidade: float
@@ -90,8 +93,6 @@ class RegistroSaidaOut(BaseModel):
     tipo_saida: str
     preco_venda: float
     funcionario_id: int
-
-    model_config = {"from_attributes": True}
 
 
 # ---------------------------------------------------------------------------
