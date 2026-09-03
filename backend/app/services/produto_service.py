@@ -57,6 +57,7 @@ class ProdutoService:
         self,
         produto: Produto,
         quantidade: float = 0,
+        total_lotes: int = 0,
     ) -> ProdutoOut:
         status = "ok"
         if quantidade <= 0:
@@ -89,6 +90,7 @@ class ProdutoService:
             ),
             quantidade_estoque=quantidade,
             status=status,
+            total_lotes=total_lotes,
             nutrientes=[
                 NutrienteOut(
                     id=nutriente.id,
@@ -262,8 +264,17 @@ class ProdutoService:
         itens = await self.repo.listar_filtros(
             nome=nome, preco_min=preco_min, preco_max=preco_max
         )
-        saldos = await self.repo.saldos_produtos([p.id for p in itens])
-        out = [self._enriquecer(p, saldos.get(p.id, 0.0)) for p in itens]
+        p_ids = [p.id for p in itens]
+        saldos = await self.repo.saldos_produtos(p_ids)
+        lotes_counts = await self.repo.contagem_lotes_produtos(p_ids)
+        out = [
+            self._enriquecer(
+                p,
+                saldos.get(p.id, 0.0),
+                lotes_counts.get(p.id, 0),
+            )
+            for p in itens
+        ]
         if status is not None:
             out = [produto for produto in out if produto.status == status]
         total = len(out)
@@ -275,7 +286,12 @@ class ProdutoService:
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         saldos = await self.repo.saldos_produtos([produto.id])
-        return self._enriquecer(produto, saldos.get(produto.id, 0.0))
+        lotes_counts = await self.repo.contagem_lotes_produtos([produto.id])
+        return self._enriquecer(
+            produto,
+            saldos.get(produto.id, 0.0),
+            lotes_counts.get(produto.id, 0),
+        )
 
     # ------------------------------------------------------------------
     # CRUD

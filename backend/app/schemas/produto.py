@@ -181,6 +181,7 @@ class ProdutoOut(BaseModel):
     categoria: CategoriaOut | None = None
     quantidade_estoque: float = 0
     status: Literal["ok", "estoque_baixo", "zerado"] = "ok"
+    total_lotes: int = 0
     nutrientes: list[NutrienteOut] = Field(default_factory=list)
     ingredientes: list[ProdutoIngredienteOut] = Field(default_factory=list)
     alergenos: list[AlergenoOut] = Field(default_factory=list)

@@ -122,6 +122,9 @@ class EstoqueProdutoOut(BaseModel):
     produto_id: int
     produto_nome: str
     quantidade: float
+    total_lotes: int = 0
+    lotes_vencendo: int = 0
+    lotes_vencidos: int = 0
 
 
 class EstoqueEntradaOut(BaseModel):

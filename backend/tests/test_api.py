@@ -228,6 +228,7 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
         item for item in estoque.json()["items"] if item["produto_id"] == produto_id
     )
     assert linha["quantidade"] == 3
+    assert linha["total_lotes"] == 1
 
     entradas_disponiveis = await client.get(
         "/api/v1/transacoes/entradas-disponiveis",
@@ -248,6 +249,7 @@ async def test_fluxo_completo_de_estoque_e_concorrencia(
     )
     assert filtrados.status_code == 200, filtrados.text
     assert filtrados.json()["total"] == 1
+    assert filtrados.json()["items"][0]["total_lotes"] == 1
 
     validade_imutavel = await client.put(
         f"/api/v1/produtos/{produto_id}",

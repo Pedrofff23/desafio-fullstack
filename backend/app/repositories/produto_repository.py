@@ -156,23 +156,34 @@ class ProdutoRepository(BaseRepository[Produto]):
         if not produto_ids:
             return {}
         saldos_rows = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT produto_id, COALESCE(SUM(quantidade), 0)
                 FROM estoque_produto
                 WHERE produto_id = ANY(CAST(:produto_ids AS bigint[]))
                 GROUP BY produto_id
-                """
-            ),
+                """),
             {"produto_ids": produto_ids},
         )
         return {int(row[0]): float(row[1]) for row in saldos_rows.fetchall()}
 
+    async def contagem_lotes_produtos(self, produto_ids: list[int]) -> dict[int, int]:
+        """Retorna a contagem de lotes não excluídos de cada produto."""
+        if not produto_ids:
+            return {}
+        rows = await self.session.execute(
+            select(Lote.produto_id, func.count(Lote.id))
+            .where(
+                Lote.produto_id.in_(produto_ids),
+                Lote.excluido_em.is_(None),
+            )
+            .group_by(Lote.produto_id)
+        )
+        return {int(row[0]): int(row[1]) for row in rows.all()}
+
     async def estoques_lotes(self, produto_id: int) -> dict[int, list[dict]]:
         """Agrupa o saldo de cada lote pelas localizações das entradas."""
         rows = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT
                     ee.lote_id,
                     ee.localizacao_id,
@@ -200,8 +211,7 @@ class ProdutoRepository(BaseRepository[Produto]):
                     pr.nivel,
                     pr.descricao
                 ORDER BY ee.lote_id, cr.nome, s.nome, pr.nome
-                """
-            ),
+                """),
             {"produto_id": produto_id},
         )
         por_lote: dict[int, list[dict]] = {}
@@ -225,26 +235,22 @@ class ProdutoRepository(BaseRepository[Produto]):
     # ------------------------------------------------------------------
     async def saldo_produto(self, produto_id: int) -> float:
         row = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT COALESCE(SUM(quantidade), 0)
                 FROM estoque_produto
                 WHERE produto_id = :pid
-                """
-            ),
+                """),
             {"pid": produto_id},
         )
         return float(row.scalar() or 0)
 
     async def saldo_lote(self, lote_id: int) -> float:
         row = await self.session.execute(
-            text(
-                """
+            text("""
                 SELECT COALESCE(SUM(quantidade), 0)
                 FROM estoque_produto
                 WHERE lote_id = :lid
-                """
-            ),
+                """),
             {"lid": lote_id},
         )
         return float(row.scalar() or 0)
