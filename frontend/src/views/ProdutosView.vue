@@ -179,6 +179,9 @@ export default defineComponent({
       try {
         await produtosApi.createLote(this.selectedProduct.id, this.lotForm)
         this.lots = await produtosApi.listarLotes(this.selectedProduct.id)
+        if (this.selectedProduct) {
+          this.selectedProduct.total_lotes = this.lots.length
+        }
         this.lotForm = emptyLote()
         this.success = 'Lote cadastrado com sucesso.'
         await this.load()
@@ -210,8 +213,8 @@ export default defineComponent({
       closable
       class="mb-4"
       @click:close="error = ''"
-      >{{ error }}</v-alert
-    >
+      >{{ error }}
+    </v-alert>
     <v-alert
       v-if="success"
       type="success"
@@ -219,45 +222,50 @@ export default defineComponent({
       closable
       class="mb-4"
       @click:close="success = ''"
-      >{{ success }}</v-alert
     >
+      {{ success }}
+    </v-alert>
 
     <v-card class="data-card pa-4 mb-4">
       <v-form @submit.prevent="search">
         <v-row align="center">
-          <v-col cols="12" md="4"
-            ><v-text-field
+          <v-col cols="12" md="4">
+            <v-text-field
               v-model.trim="filters.nome"
               label="Nome do produto"
               hide-details
               clearable
-          /></v-col>
-          <v-col cols="12" md="3"
-            ><v-select
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-select
               v-model="filters.status"
               :items="statusOptions"
               label="Status"
               hide-details
               clearable
-          /></v-col>
-          <v-col cols="6" md="2"
-            ><v-text-field
+            />
+          </v-col>
+          <v-col cols="6" md="2">
+            <v-text-field
               v-model.number="filters.preco_min"
               type="number"
               min="0"
               step="0.01"
               label="Preço mín."
               hide-details
-          /></v-col>
-          <v-col cols="6" md="2"
-            ><v-text-field
+            />
+          </v-col>
+          <v-col cols="6" md="2">
+            <v-text-field
               v-model.number="filters.preco_max"
               type="number"
               min="0"
               step="0.01"
               label="Preço máx."
               hide-details
-          /></v-col>
+            />
+          </v-col>
           <v-col cols="12" md="1" class="d-flex ga-1">
             <v-btn icon="mdi-magnify" color="primary" type="submit" title="Pesquisar" />
             <v-btn
@@ -278,7 +286,8 @@ export default defineComponent({
           <tr>
             <th>Produto</th>
             <th>Preço</th>
-            <th>Saldo</th>
+            <th>Quantidade em estoque</th>
+            <th class="text-center">Lotes</th>
             <th>Status do estoque</th>
             <th class="text-right">Ações</th>
           </tr>
@@ -291,6 +300,15 @@ export default defineComponent({
             </td>
             <td>{{ formatCurrency(produto.preco) }}</td>
             <td>{{ formatQuantity(produto.quantidade_estoque) }}</td>
+            <td class="text-center">
+              <v-chip
+                size="small"
+                variant="tonal"
+                :color="produto.total_lotes > 0 ? 'primary' : 'grey'"
+              >
+                {{ produto.total_lotes }} {{ produto.total_lotes === 1 ? 'lote' : 'lotes' }}
+              </v-chip>
+            </td>
             <td><ProductStatusChip :status="produto.status" /></td>
             <td>
               <div class="table-actions">
@@ -321,7 +339,7 @@ export default defineComponent({
           </tr>
           <EmptyTableRow
             v-if="!loading && items.length === 0"
-            :columns="5"
+            :columns="6"
             message="Nenhum produto encontrado."
           />
         </tbody>
@@ -332,7 +350,13 @@ export default defineComponent({
 
     <v-dialog v-model="lotDialog" max-width="1180">
       <v-card>
-        <v-card-title class="pa-5">Lotes de {{ selectedProduct?.nome }}</v-card-title>
+        <v-card-title class="pa-5">
+          Lotes de {{ selectedProduct?.nome }}
+          <span class="text-medium-emphasis text-body-1 font-weight-regular">
+            ({{ selectedProduct?.total_lotes ?? lots.length }}
+            {{ (selectedProduct?.total_lotes ?? lots.length) === 1 ? 'lote' : 'lotes' }})
+          </span>
+        </v-card-title>
         <v-card-text>
           <v-progress-linear v-if="lotLoading" color="primary" indeterminate class="mb-4" />
           <div class="d-flex flex-wrap ga-2 mb-4">
@@ -388,27 +412,27 @@ export default defineComponent({
           </v-table>
           <div class="text-subtitle-1 font-weight-bold mb-3">Cadastrar lote</div>
           <v-row>
-            <v-col cols="12" md="5"
-              ><v-text-field v-model.trim="lotForm.numero_lote" label="Número do lote"
-            /></v-col>
-            <v-col cols="6" md="3"
-              ><v-text-field v-model="lotForm.data_producao" type="date" label="Produção"
-            /></v-col>
-            <v-col cols="6" md="4"
-              ><v-text-field
+            <v-col cols="12" md="5">
+              <v-text-field v-model.trim="lotForm.numero_lote" label="Número do lote" />
+            </v-col>
+            <v-col cols="6" md="3">
+              <v-text-field v-model="lotForm.data_producao" type="date" label="Produção" />
+            </v-col>
+            <v-col cols="6" md="4">
+              <v-text-field
                 v-model="lotForm.data_validade"
                 type="date"
                 label="Validade"
                 :required="selectedProduct?.perecivel"
-            /></v-col>
+              />
+            </v-col>
           </v-row>
         </v-card-text>
-        <v-card-actions class="pa-5 pt-0"
-          ><v-spacer /><v-btn variant="text" @click="lotDialog = false">Fechar</v-btn
-          ><v-btn color="primary" :loading="lotLoading" @click="createLot"
-            >Cadastrar lote</v-btn
-          ></v-card-actions
-        >
+        <v-card-actions class="pa-5 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="lotDialog = false">Fechar</v-btn>
+          <v-btn color="primary" :loading="lotLoading" @click="createLot">Cadastrar lote</v-btn>
+        </v-card-actions>
       </v-card>
     </v-dialog>
   </div>

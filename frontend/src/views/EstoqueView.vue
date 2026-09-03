@@ -149,16 +149,80 @@ export default defineComponent({
           <tr>
             <th>Produto</th>
             <th class="text-right">Quantidade disponível</th>
-            <th class="text-right">Lotes</th>
+            <th class="text-center">Lotes</th>
+            <th class="text-center">Validade</th>
+            <th class="text-right">Ações</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.produto_id">
-            <td class="font-weight-medium">{{ item.produto_nome }}</td>
+            <td class="font-weight-medium">
+              <div class="d-flex align-center ga-2">
+                <span>{{ item.produto_nome }}</span>
+                <v-icon
+                  v-if="item.lotes_vencidos > 0"
+                  icon="mdi-alert-circle"
+                  color="error"
+                  size="small"
+                  title="Possui lotes vencidos"
+                />
+                <v-icon
+                  v-else-if="item.lotes_vencendo > 0"
+                  icon="mdi-clock-alert-outline"
+                  color="warning"
+                  size="small"
+                  title="Possui lotes próximos do vencimento"
+                />
+              </div>
+            </td>
             <td class="text-right">
               <v-chip :color="item.quantidade <= 0 ? 'error' : 'primary'" variant="tonal">
                 {{ formatQuantity(item.quantidade) }}
               </v-chip>
+            </td>
+            <td class="text-center">
+              <v-chip
+                size="small"
+                variant="tonal"
+                :color="item.total_lotes > 0 ? 'primary' : 'grey'"
+              >
+                {{ item.total_lotes }} {{ item.total_lotes === 1 ? 'lote' : 'lotes' }}
+              </v-chip>
+            </td>
+            <td class="text-center">
+              <div class="d-flex align-center justify-center ga-1">
+                <v-chip
+                  v-if="item.lotes_vencidos > 0"
+                  color="error"
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-calendar-remove"
+                >
+                  {{ item.lotes_vencidos }} {{ item.lotes_vencidos === 1 ? 'vencido' : 'vencidos' }}
+                </v-chip>
+                <v-chip
+                  v-if="item.lotes_vencendo > 0"
+                  color="warning"
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-clock-alert-outline"
+                >
+                  {{ item.lotes_vencendo }}
+                  {{ item.lotes_vencendo === 1 ? 'vencendo' : 'vencendo' }}
+                </v-chip>
+                <v-chip
+                  v-if="
+                    item.lotes_vencidos === 0 && item.lotes_vencendo === 0 && item.total_lotes > 0
+                  "
+                  color="success"
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-calendar-check-outline"
+                >
+                  Em dia
+                </v-chip>
+                <span v-if="item.total_lotes === 0" class="text-medium-emphasis">—</span>
+              </div>
             </td>
             <td class="text-right">
               <v-btn
@@ -173,7 +237,7 @@ export default defineComponent({
           </tr>
           <EmptyTableRow
             v-if="!loading && items.length === 0"
-            :columns="3"
+            :columns="5"
             message="Nenhum produto cadastrado."
           />
         </tbody>
@@ -186,7 +250,13 @@ export default defineComponent({
       <v-card>
         <v-card-title class="d-flex align-center pa-5">
           <div>
-            <div>Lotes de {{ selectedProduct?.produto_nome }}</div>
+            <div>
+              Lotes de {{ selectedProduct?.produto_nome }}
+              <span class="text-medium-emphasis text-body-1 font-weight-regular">
+                ({{ selectedProduct?.total_lotes ?? lots.length }}
+                {{ (selectedProduct?.total_lotes ?? lots.length) === 1 ? 'lote' : 'lotes' }})
+              </span>
+            </div>
             <div class="text-caption text-medium-emphasis font-weight-regular">
               Saldo total do produto: {{ formatQuantity(selectedProduct?.quantidade) }}
             </div>

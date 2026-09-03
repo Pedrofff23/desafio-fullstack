@@ -190,6 +190,7 @@ export interface Produto {
   categoria: Categoria | null
   quantidade_estoque: number
   status: ProdutoStatus
+  total_lotes: number
   nutrientes: Nutriente[]
   ingredientes: ProdutoIngrediente[]
   alergenos: Alergeno[]
@@ -264,6 +265,9 @@ export interface EstoqueProduto {
   produto_id: number
   produto_nome: string
   quantidade: number
+  total_lotes: number
+  lotes_vencendo: number
+  lotes_vencidos: number
 }
 
 export interface EstoqueEntrada {
