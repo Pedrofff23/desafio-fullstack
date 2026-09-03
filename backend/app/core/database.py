@@ -17,10 +17,7 @@ from app.core.config import settings
 
 
 class DatabaseSessionManager:
-    """Gerencia a engine e a fábrica de sessões
-    
-    Singleton
-    """
+    """Gerencia a engine e a fábrica de sessões (Singleton)."""
 
     _engine: AsyncEngine | None = None
     _sessionmaker: async_sessionmaker[AsyncSession] | None = None
