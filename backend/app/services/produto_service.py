@@ -5,6 +5,7 @@ pela situação individual de validade e estoque dos lotes.
 """
 
 from datetime import date
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +24,7 @@ from app.schemas.produto import (
     AlergenoOut,
     CategoriaOut,
     IngredienteOut,
+    ListaCatalogo,
     LocalizacaoOut,
     LoteCreate,
     LoteLocalizacaoOut,
@@ -130,7 +132,7 @@ class ProdutoService:
         )
 
     @staticmethod
-    def _lote_out(lote: Lote, localizacoes: list[dict]) -> LoteOut:
+    def _lote_out(lote: Lote, localizacoes: list[dict[str, Any]]) -> LoteOut:
         quantidade = sum(item["quantidade"] for item in localizacoes)
         dias_para_vencer = None
         status_validade = "sem_validade"
@@ -223,25 +225,27 @@ class ProdutoService:
     # ------------------------------------------------------------------
     # Catálogo
     # ------------------------------------------------------------------
-    async def catalogo(self) -> dict:
+    async def catalogo(self) -> ListaCatalogo:
         unidades = await self.repo.list_unidades()
         categorias = await self.repo.list_categorias()
         localizacoes = await self.repo.list_localizacoes()
         ingredientes = await self.repo.list_ingredientes()
         alergenos = await self.repo.list_alergenos()
-        return {
-            "unidades_medida": unidades,
-            "categorias": categorias,
-            "localizacoes": [self._localizacao_out(item) for item in localizacoes],
-            "ingredientes": [
-                IngredienteOut.model_validate(item, from_attributes=True)
-                for item in ingredientes
-            ],
-            "alergenos": [
-                AlergenoOut.model_validate(item, from_attributes=True)
-                for item in alergenos
-            ],
-        }
+        return ListaCatalogo.model_validate(
+            {
+                "unidades_medida": unidades,
+                "categorias": categorias,
+                "localizacoes": [self._localizacao_out(item) for item in localizacoes],
+                "ingredientes": [
+                    IngredienteOut.model_validate(item, from_attributes=True)
+                    for item in ingredientes
+                ],
+                "alergenos": [
+                    AlergenoOut.model_validate(item, from_attributes=True)
+                    for item in alergenos
+                ],
+            }
+        )
 
     # ------------------------------------------------------------------
     # Listagem com filtros
@@ -329,7 +333,7 @@ class ProdutoService:
         try:
             await self.repo.add(produto)
             if lote_inicial is not None:
-                self.session.add(
+                await self.repo.add_lote(
                     Lote(produto_id=produto.id, **lote_inicial.model_dump())
                 )
             await self.session.commit()
@@ -415,7 +419,7 @@ class ProdutoService:
             )
         lote = Lote(produto_id=produto_id, **data.model_dump())
         try:
-            self.session.add(lote)
+            await self.repo.add_lote(lote)
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()

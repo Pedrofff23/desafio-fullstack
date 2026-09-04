@@ -1,5 +1,7 @@
 """Repositório de produtos, lotes e catálogo."""
 
+from typing import Any
+
 from sqlalchemy import BigInteger, and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -129,38 +131,6 @@ class ProdutoRepository(BaseRepository[Produto]):
         lotes_counts = await self.contagem_lotes_produtos(p_ids)
         return produtos, total, saldos, lotes_counts
 
-    async def listar_filtros(
-        self,
-        *,
-        nome: str | None = None,
-        preco_min: float | None = None,
-        preco_max: float | None = None,
-    ) -> list[Produto]:
-        stmt = (
-            select(Produto)
-            .where(Produto.excluido_em.is_(None))
-            .options(
-                selectinload(Produto.unidade_medida),
-                selectinload(Produto.categoria),
-                selectinload(Produto.nutrientes),
-                selectinload(Produto.ingredientes_associacoes).selectinload(
-                    ProdutoIngrediente.ingrediente
-                ),
-                selectinload(Produto.alergenos_associacoes).selectinload(
-                    ProdutoAlergeno.alergeno
-                ),
-            )
-            .order_by(Produto.nome, Produto.id)
-        )
-        if nome:
-            stmt = stmt.where(Produto.nome.ilike(f"%{nome.strip()}%"))
-        if preco_min is not None:
-            stmt = stmt.where(Produto.preco >= preco_min)
-        if preco_max is not None:
-            stmt = stmt.where(Produto.preco <= preco_max)
-        result = await self.session.execute(stmt)
-        return list(result.scalars().unique().all())
-
     async def validar_referencias(
         self, unidade_medida_id: int, categoria_id: int, localizacao_id: int
     ) -> bool:
@@ -223,6 +193,14 @@ class ProdutoRepository(BaseRepository[Produto]):
     async def get_lote(self, lote_id: int) -> Lote | None:
         return await self.session.get(Lote, lote_id)
 
+    async def add_lote(self, lote: Lote) -> Lote:
+        self.session.add(lote)
+        await self.session.flush()
+        return lote
+
+    async def get_localizacao(self, localizacao_id: int) -> LocalizacaoEstoque | None:
+        return await self.session.get(LocalizacaoEstoque, localizacao_id)
+
     async def list_lotes_do_produto(self, produto_id: int) -> list[Lote]:
         result = await self.session.execute(
             select(Lote)
@@ -260,7 +238,7 @@ class ProdutoRepository(BaseRepository[Produto]):
         )
         return {int(row[0]): int(row[1]) for row in rows.all()}
 
-    async def estoques_lotes(self, produto_id: int) -> dict[int, list[dict]]:
+    async def estoques_lotes(self, produto_id: int) -> dict[int, list[dict[str, Any]]]:
         """Agrupa o saldo de cada lote pelas localizações das entradas."""
         rows = await self.session.execute(
             text("""
@@ -294,7 +272,7 @@ class ProdutoRepository(BaseRepository[Produto]):
                 """),
             {"produto_id": produto_id},
         )
-        por_lote: dict[int, list[dict]] = {}
+        por_lote: dict[int, list[dict[str, Any]]] = {}
         for row in rows.mappings():
             por_lote.setdefault(int(row["lote_id"]), []).append(
                 {
@@ -309,28 +287,3 @@ class ProdutoRepository(BaseRepository[Produto]):
                 }
             )
         return por_lote
-
-    # ------------------------------------------------------------------
-    # Saldo / estoque (via as views criadas na migration)
-    # ------------------------------------------------------------------
-    async def saldo_produto(self, produto_id: int) -> float:
-        row = await self.session.execute(
-            text("""
-                SELECT COALESCE(SUM(quantidade), 0)
-                FROM estoque_produto
-                WHERE produto_id = :pid
-                """),
-            {"pid": produto_id},
-        )
-        return float(row.scalar() or 0)
-
-    async def saldo_lote(self, lote_id: int) -> float:
-        row = await self.session.execute(
-            text("""
-                SELECT COALESCE(SUM(quantidade), 0)
-                FROM estoque_produto
-                WHERE lote_id = :lid
-                """),
-            {"lid": lote_id},
-        )
-        return float(row.scalar() or 0)

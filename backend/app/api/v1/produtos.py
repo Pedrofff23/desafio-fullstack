@@ -23,12 +23,13 @@ router = APIRouter(prefix="/produtos")
 
 @router.get(
     "/catalogo",
-    response_model=ListaCatalogo,
     status_code=status.HTTP_200_OK,
     tags=[CATALOGS_TAG],
     summary="Listar dados auxiliares de produtos",
 )
-async def catalogo(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def catalogo(
+    db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
+) -> ListaCatalogo:
     return await ProdutoService(db).catalogo()
 
 
@@ -53,7 +54,7 @@ async def listar(
     preco_max: float | None = Query(None, ge=0),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> PaginatedResponse[ProdutoOut]:
     return await ProdutoService(db).listar(
         page=page,
         size=size,
@@ -79,7 +80,7 @@ async def criar(
     payload: ProdutoCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> ProdutoOut:
     # O funcionário responsável é derivado do usuário autenticado.
     return await ProdutoService(db).criar(
         payload, funcionario_id=current.funcionario_id
@@ -98,7 +99,7 @@ async def criar(
 )
 async def obter(
     produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
-):
+) -> ProdutoOut:
     return await ProdutoService(db).obter(produto_id)
 
 
@@ -118,7 +119,7 @@ async def atualizar(
     payload: ProdutoUpdate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> ProdutoOut:
     return await ProdutoService(db).atualizar(produto_id, payload)
 
 
@@ -136,7 +137,7 @@ async def excluir(
     produto_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> MessageResponse:
     await ProdutoService(db).excluir(produto_id, excluido_por=current.id)
     return MessageResponse(message="Produto excluído com sucesso.")
 
@@ -158,7 +159,7 @@ async def excluir(
 )
 async def listar_lotes(
     produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
-):
+) -> list[LoteOut]:
     return await ProdutoService(db).listar_lotes(produto_id)
 
 
@@ -178,5 +179,5 @@ async def criar_lote(
     payload: LoteCreate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> LoteOut:
     return await ProdutoService(db).criar_lote(produto_id, payload)
