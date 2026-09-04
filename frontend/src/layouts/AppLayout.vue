@@ -37,13 +37,13 @@ export default defineComponent({
 
 <template>
   <div>
-    <v-navigation-drawer v-model="drawer" color="#103C30" theme="dark" width="280">
+    <v-navigation-drawer v-model="drawer" color="#40066e" theme="dark" width="280">
       <div class="brand-block pa-6">
-        <v-avatar color="secondary" rounded="lg" size="44">
+        <v-avatar color="#560894" rounded="lg" size="44">
           <v-icon icon="mdi-warehouse" />
         </v-avatar>
         <div>
-          <div class="text-subtitle-1 font-weight-bold">Estoque Vivo</div>
+          <div class="text-subtitle-1 font-weight-bold">Estoque</div>
           <div class="text-caption text-medium-emphasis">Gestão de alimentos</div>
         </div>
       </div>

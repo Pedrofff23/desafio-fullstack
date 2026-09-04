@@ -270,7 +270,7 @@ export default defineComponent({
             />
           </v-col>
           <v-col cols="12" md="1" class="d-flex ga-1">
-            <v-btn icon="mdi-magnify" color="primary" type="submit" title="Pesquisar" />
+            <v-btn icon="mdi-magnify" color="#560894" type="submit" title="Pesquisar" />
             <v-btn
               icon="mdi-filter-off-outline"
               variant="text"
