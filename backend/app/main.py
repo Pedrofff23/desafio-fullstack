@@ -36,17 +36,14 @@ async def lifespan(app: FastAPI):
 
 
 SHOW_DOCS_IN = {"local", "staging", "dev"}
-app_kwargs = {
-    "title": settings.APP_NAME,
-    "description": API_DESCRIPTION,
-    "version": settings.APP_VERSION,
-    "openapi_tags": OPENAPI_TAGS,
-    "lifespan": lifespan,
-}
-if settings.ENVIRONMENT not in SHOW_DOCS_IN:
-    app_kwargs["openapi_url"] = None
-
-app = FastAPI(**app_kwargs)
+app = FastAPI(
+    title=settings.APP_NAME,
+    description=API_DESCRIPTION,
+    version=settings.APP_VERSION,
+    openapi_tags=OPENAPI_TAGS,
+    lifespan=lifespan,
+    openapi_url=("/openapi.json" if settings.ENVIRONMENT in SHOW_DOCS_IN else None),
+)
 
 app.add_middleware(
     CORSMiddleware,

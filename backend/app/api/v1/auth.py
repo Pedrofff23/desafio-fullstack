@@ -17,14 +17,15 @@ router = APIRouter(prefix="/auth", tags=[AUTH_TAG])
 
 @router.post(
     "/login",
-    response_model=TokenResponse,
     status_code=status.HTTP_200_OK,
     summary="Autenticar usuário",
     responses={
         status.HTTP_401_UNAUTHORIZED: {"description": "Credenciais inválidas"},
     },
 )
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    payload: LoginRequest, db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
     return await AuthService(db).login(payload)
 
 
@@ -42,5 +43,5 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 async def me(
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> UsuarioOut:
     return await UsuarioService(db).me(current.id)

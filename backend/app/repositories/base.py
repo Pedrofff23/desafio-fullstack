@@ -24,14 +24,14 @@ class BaseRepository[ModelT: Base]:
     async def get(self, id: int) -> ModelT | None:
         return await self.session.get(self.model, id)
 
-    async def get_or_none(self, **filters) -> ModelT | None:
+    async def get_or_none(self, **filters: object) -> ModelT | None:
         stmt = select(self.model)
         for col, value in filters.items():
             stmt = stmt.where(getattr(self.model, col) == value)
         result = await self.session.execute(stmt.limit(1))
         return result.scalar_one_or_none()
 
-    def _active_stmt(self) -> Select:
+    def _active_stmt(self) -> Select[tuple[ModelT]]:
         stmt = select(self.model)
         excluido_em = getattr(self.model, "excluido_em", None)
         if excluido_em is not None:
@@ -40,7 +40,9 @@ class BaseRepository[ModelT: Base]:
 
     async def list_all(self, *, exclude_deleted: bool = True) -> list[ModelT]:
         stmt = self._active_stmt() if exclude_deleted else select(self.model)
-        result = await self.session.execute(stmt.order_by(getattr(self.model, "id")))
+        result = await self.session.execute(
+            stmt.order_by(getattr(self.model, "id"))  # noqa: B009
+        )
         return list(result.scalars().all())
 
     async def list_paginated(
@@ -48,7 +50,7 @@ class BaseRepository[ModelT: Base]:
         *,
         page: int = 1,
         size: int = 20,
-        filters: dict | None = None,
+        filters: dict[str, object] | None = None,
         order_by=None,
     ) -> tuple[list[ModelT], int]:
         """Retorna (itens, total) aplicando paginação e filtros simples."""
@@ -70,7 +72,7 @@ class BaseRepository[ModelT: Base]:
         if order_by is not None:
             base = base.order_by(order_by)
         else:
-            base = base.order_by(getattr(self.model, "id"))
+            base = base.order_by(getattr(self.model, "id"))  # noqa: B009
 
         base = base.offset((page - 1) * size).limit(size)
         result = await self.session.execute(base)
@@ -100,9 +102,9 @@ class BaseRepository[ModelT: Base]:
         if hasattr(obj, "excluido_em"):
             from datetime import UTC, datetime
 
-            setattr(obj, "excluido_em", datetime.now(UTC))
+            setattr(obj, "excluido_em", datetime.now(UTC))  # noqa: B010
             if deleted_by is not None and hasattr(obj, "excluido_por"):
-                setattr(obj, "excluido_por", deleted_by)
+                setattr(obj, "excluido_por", deleted_by)  # noqa: B010
             await self.session.flush()
         else:
             await self.session.delete(obj)

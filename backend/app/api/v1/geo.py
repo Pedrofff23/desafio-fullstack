@@ -14,13 +14,12 @@ router = APIRouter(prefix="/geo", tags=[GEO_TAG])
 
 @router.get(
     "/estados",
-    response_model=list[EstadoOut],
     status_code=status.HTTP_200_OK,
     summary="Listar estados",
 )
 async def listar_estados(
     db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
-):
+) -> list[EstadoOut]:
     return await LocalidadeService(db).listar_estados()
 
 
@@ -32,5 +31,5 @@ async def listar_estados(
 )
 async def listar_cidades(
     estado_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
-):
+) -> list[CidadeOut]:
     return await LocalidadeService(db).listar_cidades_do_estado(estado_id)
