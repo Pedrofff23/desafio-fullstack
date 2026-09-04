@@ -91,7 +91,9 @@ class Seccao(Base):
     corredor: Mapped["Corredor"] = relationship(back_populates="seccoes")
     prateleiras: Mapped[list["Prateleira"]] = relationship(back_populates="seccao")
 
-    __table_args__ = (UniqueConstraint("corredor_id", "nome"),)
+    __table_args__ = (
+        UniqueConstraint("corredor_id", "nome", name="seccoes_corredor_id_nome_key"),
+    )
 
 
 class Prateleira(Base):
@@ -112,7 +114,9 @@ class Prateleira(Base):
         back_populates="prateleira", uselist=False
     )
 
-    __table_args__ = (UniqueConstraint("seccao_id", "nome"),)
+    __table_args__ = (
+        UniqueConstraint("seccao_id", "nome", name="prateleiras_seccao_id_nome_key"),
+    )
 
 
 class LocalizacaoEstoque(Base):
@@ -195,7 +199,9 @@ class Lote(Base):
     excluido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
     __table_args__ = (
-        UniqueConstraint("produto_id", "numero_lote"),
+        UniqueConstraint(
+            "produto_id", "numero_lote", name="lotes_produto_id_numero_lote_key"
+        ),
         Index("idx_lote_validade", "data_validade"),
     )
 
@@ -215,7 +221,9 @@ class Nutriente(Base):
 
     produto: Mapped["Produto"] = relationship(back_populates="nutrientes")
 
-    __table_args__ = (UniqueConstraint("produto_id", "nome"),)
+    __table_args__ = (
+        UniqueConstraint("produto_id", "nome", name="nutrientes_produto_id_nome_key"),
+    )
 
 
 class ProdutoIngrediente(Base):
@@ -232,7 +240,13 @@ class ProdutoIngrediente(Base):
     produto: Mapped["Produto"] = relationship(back_populates="ingredientes_associacoes")
     ingrediente: Mapped["Ingrediente"] = relationship()
 
-    __table_args__ = (UniqueConstraint("produto_id", "ordem"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "produto_id",
+            "ordem",
+            name="produtos_ingredientes_produto_id_ordem_key",
+        ),
+    )
 
 
 class ProdutoAlergeno(Base):

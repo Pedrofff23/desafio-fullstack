@@ -44,7 +44,7 @@ class Estado(Base):
     uf: Mapped[str | None] = mapped_column(String(2))
     ibge: Mapped[int | None] = mapped_column(Integer)
     pais: Mapped[int | None] = mapped_column(Integer, ForeignKey("paises.id"))
-    ddd: Mapped[list | None] = mapped_column(JSON)
+    ddd: Mapped[list[int] | None] = mapped_column(JSON)
 
     pais_rel: Mapped["Pais | None"] = relationship(back_populates="estados")
     cidades: Mapped[list["Cidade"]] = relationship(back_populates="estado")
@@ -78,7 +78,13 @@ class Endereco(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "logradouro", "numero", "complemento", "cep", "bairro", "cidade_id"
+            "logradouro",
+            "numero",
+            "complemento",
+            "cep",
+            "bairro",
+            "cidade_id",
+            name="enderecos_logradouro_numero_complemento_cep_bairro_cidade_i_key",
         ),
         Index("idx_endereco_cidade", "cidade_id"),
     )
@@ -96,4 +102,11 @@ class Contato(Base):
     ddd: Mapped[str] = mapped_column(CHAR(2), nullable=False)
     numero: Mapped[str] = mapped_column(String(15), nullable=False)
 
-    __table_args__ = (UniqueConstraint("codigo_pais", "ddd", "numero"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "codigo_pais",
+            "ddd",
+            "numero",
+            name="contatos_codigo_pais_ddd_numero_key",
+        ),
+    )
