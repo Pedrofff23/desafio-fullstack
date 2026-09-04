@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.localidade import Cidade, Contato, Endereco
+from app.models.localidade import Endereco
 from app.models.usuario import Funcionario, Usuario
 from app.repositories.base import BaseRepository
 
@@ -26,24 +26,6 @@ class UsuarioRepository(BaseRepository[Usuario]):
         stmt = select(Usuario).where(Usuario.email == email)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
-
-    async def get_funcionario(self, funcionario_id: int) -> Funcionario | None:
-        return await self.session.get(Funcionario, funcionario_id)
-
-    async def get_endereco(self, endereco_id: int) -> Endereco | None:
-        return await self.session.get(Endereco, endereco_id)
-
-    async def get_contato(self, contato_id: int) -> Contato | None:
-        return await self.session.get(Contato, contato_id)
-
-    async def get_cidade(self, cidade_id: int) -> Cidade | None:
-        return await self.session.get(Cidade, cidade_id)
-
-    async def cidade_pertence_ao_estado(self, cidade_id: int, estado_id: int) -> bool:
-        result = await self.session.execute(
-            select(Cidade.id).where(Cidade.id == cidade_id, Cidade.uf == estado_id)
-        )
-        return result.scalar_one_or_none() is not None
 
     async def listar_paginado(
         self, *, page: int = 1, size: int = 20, nome: str | None = None
@@ -75,3 +57,18 @@ class UsuarioRepository(BaseRepository[Usuario]):
         total = await self.session.execute(total_stmt)
         total_count = int(total.scalar() or 0)
         return itens, total_count
+
+    async def get_com_relacionamentos(self, usuario_id: int) -> Usuario | None:
+        """Carrega o usuário com todas as relações de funcionário, endereço e contato."""
+        stmt = (
+            select(Usuario)
+            .where(Usuario.id == usuario_id)
+            .options(
+                selectinload(Usuario.funcionario)
+                .selectinload(Funcionario.endereco)
+                .selectinload(Endereco.cidade),
+                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().unique().one_or_none()

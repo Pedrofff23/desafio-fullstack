@@ -16,7 +16,6 @@ router = APIRouter(prefix="/usuarios", tags=[USERS_TAG])
 
 @router.get(
     "",
-    response_model=PaginatedResponse[UsuarioOut],
     status_code=status.HTTP_200_OK,
     summary="Listar usuários",
 )
@@ -26,7 +25,7 @@ async def listar(
     nome: str | None = None,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> PaginatedResponse[UsuarioOut]:
     return await UsuarioService(db).listar(page=page, size=size, nome=nome)
 
 
@@ -46,7 +45,7 @@ async def criar(
     payload: UsuarioCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> UsuarioOut:
     return await UsuarioService(db).criar(payload, criado_por=current.id)
 
 
@@ -63,7 +62,7 @@ async def obter(
     usuario_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> UsuarioOut:
     return await UsuarioService(db).obter(usuario_id)
 
 
@@ -82,7 +81,7 @@ async def atualizar(
     payload: UsuarioUpdate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> UsuarioOut:
     return await UsuarioService(db).atualizar(usuario_id, payload, current.id)
 
 
@@ -99,6 +98,6 @@ async def excluir(
     usuario_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> MessageResponse:
     await UsuarioService(db).excluir(usuario_id, excluido_por=current.id)
     return MessageResponse(message="Usuário excluído com sucesso.")

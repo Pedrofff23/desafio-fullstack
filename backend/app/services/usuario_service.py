@@ -7,14 +7,12 @@ atomicidade entre as tabelas `enderecos`, `contatos`, `funcionarios` e `usuarios
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.security import hash_password
-from app.models.localidade import Endereco
 from app.models.usuario import Funcionario, Usuario
+from app.repositories.localidade_repository import LocalidadeRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.usuario import (
@@ -26,7 +24,7 @@ from app.schemas.usuario import (
 )
 
 
-def _contato_para_orm(data: ContatoIn) -> dict:
+def _contato_para_orm(data: ContatoIn) -> dict[str, str]:
     return {
         "codigo_pais": data.codigo_pais,
         "ddd": data.ddd,
@@ -34,7 +32,7 @@ def _contato_para_orm(data: ContatoIn) -> dict:
     }
 
 
-def _endereco_para_orm(data: EnderecoIn) -> dict:
+def _endereco_para_orm(data: EnderecoIn) -> dict[str, str | int | None]:
     return {
         "logradouro": data.logradouro,
         "numero": data.numero,
@@ -51,6 +49,7 @@ class UsuarioService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repo = UsuarioRepository(session)
+        self.localidade_repo = LocalidadeRepository(session)
 
     # ------------------------------------------------------------------
     # Helper de montagem do DTO
@@ -63,7 +62,7 @@ class UsuarioService:
     # Validações de FK
     # ------------------------------------------------------------------
     async def _validar_endereco(self, endereco: EnderecoIn) -> None:
-        if not await self.repo.cidade_pertence_ao_estado(
+        if not await self.localidade_repo.cidade_pertence_ao_estado(
             endereco.cidade_id, endereco.estado_id
         ):
             raise HTTPException(
@@ -95,18 +94,7 @@ class UsuarioService:
         return self._to_out(usuario)
 
     async def _carregar_model(self, usuario_id: int) -> Usuario | None:
-        stmt = (
-            select(Usuario)
-            .where(Usuario.id == usuario_id)
-            .options(
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.endereco)
-                .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
-            )
-        )
-        result = await self.session.execute(stmt)
-        return result.scalars().unique().one_or_none()
+        return await self.repo.get_com_relacionamentos(usuario_id)
 
     # ------------------------------------------------------------------
     # Criação (transacional)
@@ -141,9 +129,8 @@ class UsuarioService:
             ativo=True,
         )
 
-        self.session.add(usuario)
         try:
-            await self.session.flush()
+            await self.repo.add(usuario)
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
@@ -152,20 +139,12 @@ class UsuarioService:
                 detail="E-mail, contato ou endereço já cadastrado",
             ) from exc
 
-        # Recarregar com eager loading dos relacionamentos
-        stmt = (
-            select(Usuario)
-            .where(Usuario.id == usuario.id)
-            .options(
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.endereco)
-                .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
+        usuario_carregado = await self._carregar_model(usuario.id)
+        if usuario_carregado is None:
+            raise HTTPException(
+                status_code=404, detail="Usuário não encontrado após cadastro"
             )
-        )
-        result = await self.session.execute(stmt)
-        usuario = result.scalars().unique().one()
-        return self._to_out(usuario)
+        return self._to_out(usuario_carregado)
 
     # ------------------------------------------------------------------
     # Edição (transacional, em cascata)
@@ -215,20 +194,12 @@ class UsuarioService:
                 detail="E-mail, contato ou endereço já cadastrado",
             ) from exc
 
-        # Recarregar com eager loading dos relacionamentos
-        stmt = (
-            select(Usuario)
-            .where(Usuario.id == usuario_id)
-            .options(
-                selectinload(Usuario.funcionario)
-                .selectinload(Funcionario.endereco)
-                .selectinload(Endereco.cidade),
-                selectinload(Usuario.funcionario).selectinload(Funcionario.contato),
+        usuario_carregado = await self._carregar_model(usuario_id)
+        if usuario_carregado is None:
+            raise HTTPException(
+                status_code=404, detail="Usuário não encontrado após atualização"
             )
-        )
-        result = await self.session.execute(stmt)
-        usuario = result.scalars().unique().one()
-        return self._to_out(usuario)
+        return self._to_out(usuario_carregado)
 
     # ------------------------------------------------------------------
     # Exclusão (soft delete em cascata)
