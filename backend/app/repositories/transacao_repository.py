@@ -158,12 +158,16 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
                 ) l ON l.produto_id = p.id
                 LEFT JOIN (
                     SELECT
-                        produto_id,
-                        COUNT(CASE WHEN data_validade IS NOT NULL AND data_validade >= CURRENT_DATE AND data_validade <= (CURRENT_DATE + 30) THEN 1 END) AS lotes_vencendo,
-                        COUNT(CASE WHEN data_validade IS NOT NULL AND data_validade < CURRENT_DATE THEN 1 END) AS lotes_vencidos
-                    FROM lotes
-                    WHERE excluido_em IS NULL
-                    GROUP BY produto_id
+                        lote.produto_id,
+                        COUNT(CASE WHEN lote.data_validade IS NOT NULL AND lote.data_validade >= CURRENT_DATE AND lote.data_validade < (CURRENT_DATE + 30) THEN 1 END) AS lotes_vencendo,
+                        COUNT(CASE WHEN lote.data_validade IS NOT NULL AND lote.data_validade < CURRENT_DATE THEN 1 END) AS lotes_vencidos
+                    FROM lotes lote
+                    JOIN estoque_produto ep
+                      ON ep.lote_id = lote.id
+                     AND ep.produto_id = lote.produto_id
+                     AND ep.quantidade > 0
+                    WHERE lote.excluido_em IS NULL
+                    GROUP BY lote.produto_id
                 ) lv ON lv.produto_id = p.id
                 WHERE p.excluido_em IS NULL
                 ORDER BY p.nome, p.id

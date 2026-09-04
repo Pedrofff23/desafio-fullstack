@@ -51,7 +51,9 @@ export default defineComponent({
       if (this.lotFilter === 'com_estoque') {
         return this.lots.filter((lot) => lot.status_estoque === 'com_estoque')
       }
-      return this.lots.filter((lot) => lot.status_validade === this.lotFilter)
+      return this.lots.filter(
+        (lot) => lot.quantidade_estoque > 0 && lot.status_validade === this.lotFilter,
+      )
     },
   },
   watch: {
@@ -72,6 +74,7 @@ export default defineComponent({
       return ''
     },
     expirationDays(lot: Lote): string {
+      if (lot.quantidade_estoque <= 0) return '—'
       if (lot.dias_para_vencer === null) return '—'
       if (lot.dias_para_vencer < 0) {
         const days = Math.abs(lot.dias_para_vencer)
@@ -160,14 +163,14 @@ export default defineComponent({
               <div class="d-flex align-center ga-2">
                 <span>{{ item.produto_nome }}</span>
                 <v-icon
-                  v-if="item.lotes_vencidos > 0"
+                  v-if="item.quantidade > 0 && item.lotes_vencidos > 0"
                   icon="mdi-alert-circle"
                   color="error"
                   size="small"
                   title="Possui lotes vencidos"
                 />
                 <v-icon
-                  v-else-if="item.lotes_vencendo > 0"
+                  v-else-if="item.quantidade > 0 && item.lotes_vencendo > 0"
                   icon="mdi-clock-alert-outline"
                   color="warning"
                   size="small"
@@ -191,37 +194,45 @@ export default defineComponent({
             </td>
             <td class="text-center">
               <div class="d-flex align-center justify-center ga-1">
+                <template v-if="item.quantidade > 0">
+                  <v-chip
+                    v-if="item.lotes_vencidos > 0"
+                    color="error"
+                    size="small"
+                    variant="tonal"
+                    prepend-icon="mdi-calendar-remove"
+                  >
+                    {{ item.lotes_vencidos }}
+                    {{ item.lotes_vencidos === 1 ? 'vencido' : 'vencidos' }}
+                  </v-chip>
+                  <v-chip
+                    v-if="item.lotes_vencendo > 0"
+                    color="warning"
+                    size="small"
+                    variant="tonal"
+                    prepend-icon="mdi-clock-alert-outline"
+                  >
+                    {{ item.lotes_vencendo }} vencendo
+                  </v-chip>
+                  <v-chip
+                    v-if="item.lotes_vencidos === 0 && item.lotes_vencendo === 0"
+                    color="success"
+                    size="small"
+                    variant="tonal"
+                    prepend-icon="mdi-calendar-check-outline"
+                  >
+                    Em dia
+                  </v-chip>
+                </template>
                 <v-chip
-                  v-if="item.lotes_vencidos > 0"
-                  color="error"
+                  v-else
+                  color="grey"
                   size="small"
                   variant="tonal"
-                  prepend-icon="mdi-calendar-remove"
+                  prepend-icon="mdi-package-variant-remove"
                 >
-                  {{ item.lotes_vencidos }} {{ item.lotes_vencidos === 1 ? 'vencido' : 'vencidos' }}
+                  Sem estoque
                 </v-chip>
-                <v-chip
-                  v-if="item.lotes_vencendo > 0"
-                  color="warning"
-                  size="small"
-                  variant="tonal"
-                  prepend-icon="mdi-clock-alert-outline"
-                >
-                  {{ item.lotes_vencendo }}
-                  {{ item.lotes_vencendo === 1 ? 'vencendo' : 'vencendo' }}
-                </v-chip>
-                <v-chip
-                  v-if="
-                    item.lotes_vencidos === 0 && item.lotes_vencendo === 0 && item.total_lotes > 0
-                  "
-                  color="success"
-                  size="small"
-                  variant="tonal"
-                  prepend-icon="mdi-calendar-check-outline"
-                >
-                  Em dia
-                </v-chip>
-                <span v-if="item.total_lotes === 0" class="text-medium-emphasis">—</span>
               </div>
             </td>
             <td class="text-right">
@@ -309,7 +320,10 @@ export default defineComponent({
                 </td>
                 <td>{{ formatDate(lot.data_producao) }}</td>
                 <td>{{ formatDate(lot.data_validade) }}</td>
-                <td><LotExpirationChip :status="lot.status_validade" /></td>
+                <td>
+                  <span v-if="lot.quantidade_estoque <= 0" class="text-medium-emphasis">—</span>
+                  <LotExpirationChip v-else :status="lot.status_validade" />
+                </td>
                 <td>{{ expirationDays(lot) }}</td>
                 <td>{{ formatQuantity(lot.quantidade_estoque) }}</td>
                 <td>

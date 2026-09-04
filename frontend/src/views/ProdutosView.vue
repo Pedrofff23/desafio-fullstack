@@ -74,7 +74,9 @@ export default defineComponent({
       if (this.lotFilter === 'com_estoque') {
         return this.lots.filter((lot) => lot.quantidade_estoque > 0)
       }
-      return this.lots.filter((lot) => lot.status_validade === this.lotFilter)
+      return this.lots.filter(
+        (lot) => lot.quantidade_estoque > 0 && lot.status_validade === this.lotFilter,
+      )
     },
   },
   watch: {
@@ -96,6 +98,7 @@ export default defineComponent({
       return ''
     },
     expirationDays(lot: Lote): string {
+      if (lot.quantidade_estoque <= 0) return '—'
       if (lot.dias_para_vencer === null) return '—'
       if (lot.dias_para_vencer < 0) {
         const days = Math.abs(lot.dias_para_vencer)
@@ -389,7 +392,10 @@ export default defineComponent({
                 <td>{{ lot.numero_lote }}</td>
                 <td>{{ formatDate(lot.data_producao) }}</td>
                 <td>{{ formatDate(lot.data_validade) }}</td>
-                <td><LotExpirationChip :status="lot.status_validade" /></td>
+                <td>
+                  <span v-if="lot.quantidade_estoque <= 0" class="text-medium-emphasis">—</span>
+                  <LotExpirationChip v-else :status="lot.status_validade" />
+                </td>
                 <td>{{ expirationDays(lot) }}</td>
                 <td>
                   <v-chip
