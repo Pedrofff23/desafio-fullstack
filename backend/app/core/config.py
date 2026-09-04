@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
-    # Migrations
+    # Migrations & Seeds
     AUTO_MIGRATE: bool = True
+    AUTO_SEED: bool = True
+    AUTO_SEED_DEMO: bool = False
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:8080", "http://localhost:5173"]
