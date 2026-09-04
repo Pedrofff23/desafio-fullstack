@@ -37,14 +37,13 @@ router = APIRouter(prefix="/transacoes")
 
 @router.get(
     "/fornecedores",
-    response_model=list[FornecedorOut],
     status_code=status.HTTP_200_OK,
     tags=[SUPPLIERS_TAG],
     summary="Listar fornecedores",
 )
 async def listar_fornecedores(
     db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
-):
+) -> list[FornecedorOut]:
     return await TransacaoService(db).listar_fornecedores()
 
 
@@ -67,7 +66,7 @@ async def criar_fornecedor(
     payload: FornecedorCreate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> FornecedorOut:
     return await TransacaoService(db).criar_fornecedor(payload)
 
 
@@ -95,7 +94,7 @@ async def registrar_entrada(
     payload: RegistroEntradaCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> RegistroEntradaOut:
     return await TransacaoService(db).registrar_entrada(
         payload, funcionario_id=current.funcionario_id
     )
@@ -116,7 +115,7 @@ async def registrar_saida(
     payload: RegistroSaidaCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
-):
+) -> RegistroSaidaOut:
     return await TransacaoService(db).registrar_saida(
         payload, funcionario_id=current.funcionario_id
     )
@@ -138,7 +137,7 @@ async def entradas_disponiveis(
     produto_id: int | None = Query(None, ge=1),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> list[EstoqueEntradaOut]:
     return await TransacaoService(db).entradas_disponiveis(produto_id=produto_id)
 
 
@@ -154,7 +153,7 @@ async def estoque_atual(
     size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> PaginatedResponse[EstoqueProdutoOut]:
     return await TransacaoService(db).estoque_atual(page=page, size=size)
 
 
@@ -176,7 +175,7 @@ async def historico(
     data_fim: datetime | None = None,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
-):
+) -> PaginatedResponse[MovimentoOut]:
     return await TransacaoService(db).historico(
         page=page,
         size=size,

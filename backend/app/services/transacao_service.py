@@ -11,20 +11,18 @@ Regras:
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.localidade import Contato, Endereco
-from app.models.produto import LocalizacaoEstoque, Produto
 from app.models.transacao import (
     Fornecedor,
     RegistroEntrada,
     RegistroSaida,
 )
-from app.models.usuario import Usuario
+from app.repositories.localidade_repository import LocalidadeRepository
+from app.repositories.produto_repository import ProdutoRepository
 from app.repositories.transacao_repository import TransacaoRepository
-from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
     EstoqueEntradaOut,
@@ -44,13 +42,14 @@ class TransacaoService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repo = TransacaoRepository(session)
+        self.localidade_repo = LocalidadeRepository(session)
+        self.produto_repo = ProdutoRepository(session)
 
     # ------------------------------------------------------------------
     # Fornecedores
     # ------------------------------------------------------------------
     async def criar_fornecedor(self, data: FornecedorCreate) -> FornecedorOut:
-        usuario_repo = UsuarioRepository(self.session)
-        if not await usuario_repo.cidade_pertence_ao_estado(
+        if not await self.localidade_repo.cidade_pertence_ao_estado(
             data.endereco.cidade_id, data.endereco.estado_id
         ):
             raise HTTPException(
@@ -89,13 +88,11 @@ class TransacaoService:
     async def registrar_entrada(
         self, data: RegistroEntradaCreate, funcionario_id: int
     ) -> RegistroEntradaOut:
-        from app.models.produto import Lote
-
-        lote = await self.session.get(Lote, data.lote_id)
+        lote = await self.produto_repo.get_lote(data.lote_id)
         if lote is None or lote.excluido_em is not None or not lote.ativo:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
 
-        produto = await self.session.get(Produto, lote.produto_id)
+        produto = await self.produto_repo.get(lote.produto_id)
         if produto is None or produto.excluido_em is not None or not produto.ativo:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
@@ -111,7 +108,7 @@ class TransacaoService:
                 raise HTTPException(
                     status_code=400, detail="Produto sem localização cadastrada"
                 )
-        elif await self.session.get(LocalizacaoEstoque, localizacao_id) is None:
+        elif await self.produto_repo.get_localizacao(localizacao_id) is None:
             raise HTTPException(status_code=400, detail="Localização não encontrada")
 
         entrada = RegistroEntrada(
@@ -173,11 +170,8 @@ class TransacaoService:
     async def estoque_atual(
         self, page: int = 1, size: int = 20
     ) -> PaginatedResponse[dict]:
-        linhas = await self.repo.estoque_atual_por_produto()
-        total = len(linhas)
-        inicio = (page - 1) * size
-        fatia = linhas[inicio : inicio + size]
-        return PaginatedResponse.build(fatia, total, page, size)
+        linhas, total = await self.repo.estoque_atual_por_produto(page=page, size=size)
+        return PaginatedResponse.build(linhas, total, page, size)
 
     # ------------------------------------------------------------------
     # Histórico
@@ -204,46 +198,20 @@ class TransacaoService:
             data_fim=data_fim,
         )
 
-        # Carrega nomes de produtos e e-mails em lote (evita N+1 queries)
-        produto_ids = {r["produto_id"] for r in linhas if r.get("produto_id")}
-        func_ids = {r["funcionario_id"] for r in linhas if r.get("funcionario_id")}
-
-        nomes_produto: dict[int, str] = {}
-        if produto_ids:
-            rows = await self.session.execute(
-                select(Produto.id, Produto.nome).where(Produto.id.in_(produto_ids))
-            )
-            nomes_produto = {row[0]: row[1] for row in rows}
-
-        emails_func: dict[int, str] = {}
-        if func_ids:
-            rows = await self.session.execute(
-                select(Usuario.funcionario_id, Usuario.email).where(
-                    Usuario.funcionario_id.in_(func_ids)
-                )
-            )
-            emails_func = {row[0]: row[1] for row in rows}
-
         out: list[MovimentoOut] = [
             MovimentoOut(
                 id=r["id"],
                 tipo=r["tipo"],
                 tipo_movimento=r["tipo_movimento"],
                 produto_id=r.get("produto_id"),
-                produto_nome=(
-                    nomes_produto.get(r["produto_id"]) if r.get("produto_id") else None
-                ),
+                produto_nome=r.get("produto_nome"),
                 lote_id=r.get("lote_id"),
                 quantidade=float(r["quantidade"]),
                 data_movimento=r["data_movimento"],
                 preco=float(r["preco"]) if r.get("preco") is not None else None,
                 observacao=r.get("observacao"),
                 funcionario_id=r.get("funcionario_id"),
-                responsavel_email=(
-                    emails_func.get(r["funcionario_id"])
-                    if r.get("funcionario_id")
-                    else None
-                ),
+                responsavel_email=r.get("responsavel_email"),
             )
             for r in linhas
         ]

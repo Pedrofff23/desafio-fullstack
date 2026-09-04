@@ -1,14 +1,16 @@
 """Repositório de movimentações de estoque e fornecedores."""
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import func, literal, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.localidade import Endereco
-from app.models.produto import Lote
+from app.models.produto import Lote, Produto
 from app.models.transacao import Fornecedor, RegistroEntrada, RegistroSaida
+from app.models.usuario import Usuario
 from app.repositories.base import BaseRepository
 
 # Alias para legibilidade das queries de histórico
@@ -88,18 +90,9 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         )
         return float(row.scalar() or 0)
 
-    async def saldo_produto(self, produto_id: int) -> float:
-        row = await self.session.execute(
-            text("""
-                SELECT COALESCE(SUM(quantidade), 0)
-                FROM estoque_produto
-                WHERE produto_id = :pid
-                """),
-            {"pid": produto_id},
-        )
-        return float(row.scalar() or 0)
-
-    async def entradas_disponiveis(self, produto_id: int | None = None) -> list[dict]:
+    async def entradas_disponiveis(
+        self, produto_id: int | None = None
+    ) -> list[dict[str, Any]]:
         """Lista entradas que ainda possuem saldo para uma futura saída."""
 
         filtro_produto = (
@@ -131,10 +124,19 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             for row in rows.fetchall()
         ]
 
-    async def estoque_atual_por_produto(self) -> list[dict]:
-        """Linhas agregadas do estoque por produto com total e status de validade dos lotes."""
+    async def estoque_atual_por_produto(
+        self, *, page: int = 1, size: int = 20
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Retorna o estoque agregado com paginação executada no PostgreSQL."""
 
-        rows = await self.session.execute(text("""
+        total = int(
+            await self.session.scalar(
+                text("SELECT COUNT(*) FROM produtos WHERE excluido_em IS NULL")
+            )
+            or 0
+        )
+        rows = await self.session.execute(
+            text("""
                 SELECT
                     p.id,
                     p.nome,
@@ -165,8 +167,11 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
                 ) lv ON lv.produto_id = p.id
                 WHERE p.excluido_em IS NULL
                 ORDER BY p.nome, p.id
-                """))
-        return [
+                LIMIT :size OFFSET :offset
+                """),
+            {"size": size, "offset": (page - 1) * size},
+        )
+        itens = [
             {
                 "produto_id": r[0],
                 "produto_nome": r[1],
@@ -177,6 +182,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             }
             for r in rows.fetchall()
         ]
+        return itens, total
 
     # ------------------------------------------------------------------
     # Histórico (auditoria) — unifica entradas e saídas em uma lista
@@ -192,7 +198,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         quantidade: float | None = None,
         data_inicio: datetime | None = None,
         data_fim: datetime | None = None,
-    ) -> tuple[list[dict], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         entradas = select(
             RegistroEntrada.id.label("id"),
             literal("entrada").label("tipo"),
@@ -231,7 +237,15 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
 
         unidos = union_all(entradas, saidas).subquery()
 
-        base = select(unidos)
+        base = (
+            select(
+                unidos,
+                Produto.nome.label("produto_nome"),
+                Usuario.email.label("responsavel_email"),
+            )
+            .outerjoin(Produto, Produto.id == unidos.c.produto_id)
+            .outerjoin(Usuario, Usuario.funcionario_id == unidos.c.funcionario_id)
+        )
         count = select(func.count()).select_from(unidos)
 
         if produto_id is not None:
