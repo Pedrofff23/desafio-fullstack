@@ -7,6 +7,7 @@ import AddressFields from '@/components/AddressFields.vue'
 import ContactFields from '@/components/ContactFields.vue'
 import EmptyTableRow from '@/components/EmptyTableRow.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import PaginationControls from '@/components/PaginationControls.vue'
 import type { Fornecedor, FornecedorCreate } from '@/types/api'
 import { getErrorMessage } from '@/utils/errors'
 import { formatContact, formatDateTime } from '@/utils/formatters'
@@ -28,10 +29,19 @@ function emptyForm(): FornecedorCreate {
 
 export default defineComponent({
   name: 'FornecedoresView',
-  components: { ActiveStatusChip, AddressFields, ContactFields, EmptyTableRow, PageHeader },
+  components: {
+    ActiveStatusChip,
+    AddressFields,
+    ContactFields,
+    EmptyTableRow,
+    PageHeader,
+    PaginationControls,
+  },
   data() {
     return {
       items: [] as Fornecedor[],
+      page: 1,
+      size: 20,
       form: emptyForm(),
       dialog: false,
       inspectDialog: false,
@@ -43,6 +53,18 @@ export default defineComponent({
       success: '',
     }
   },
+  computed: {
+    total(): number {
+      return this.items.length
+    },
+    pages(): number {
+      return Math.ceil(this.total / this.size) || 1
+    },
+    paginatedItems(): Fornecedor[] {
+      const start = (this.page - 1) * this.size
+      return this.items.slice(start, start + this.size)
+    },
+  },
   mounted() {
     void this.load()
   },
@@ -53,6 +75,9 @@ export default defineComponent({
       this.loading = true
       try {
         this.items = await transacoesApi.fornecedores()
+        if (this.page > this.pages) {
+          this.page = Math.max(this.pages, 1)
+        }
       } catch (error) {
         this.error = getErrorMessage(error)
       } finally {
@@ -162,7 +187,7 @@ export default defineComponent({
           </tr>
         </thead>
         <tbody>
-          <tr v-for="supplier in items" :key="supplier.id">
+          <tr v-for="supplier in paginatedItems" :key="supplier.id">
             <td class="font-weight-medium">{{ supplier.nome_empresa }}</td>
             <td>{{ formatContact(supplier.contato) }}</td>
             <td>{{ supplier.endereco.cidade.nome }}</td>
@@ -180,6 +205,8 @@ export default defineComponent({
           />
         </tbody>
       </v-table>
+      <v-divider />
+      <PaginationControls v-model="page" :pages="pages" :total="total" />
     </v-card>
 
     <v-dialog v-model="dialog" max-width="900" persistent>
