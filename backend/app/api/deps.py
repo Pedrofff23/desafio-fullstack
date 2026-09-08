@@ -49,13 +49,3 @@ async def get_current_user(
             detail="Usuário inativo ou inexistente",
         )
     return usuario
-
-
-def require_admin(current: Usuario = Depends(get_current_user)) -> Usuario:
-    """Garante que o usuário corrente tenha perfil de administrador."""
-    if current.perfil != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso permitido apenas para administradores",
-        )
-    return current

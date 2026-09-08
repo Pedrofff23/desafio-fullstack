@@ -113,7 +113,7 @@ export default defineComponent({
             hide-details
             clearable
           />
-          <v-btn color="primary" type="submit" :loading="loading">Pesquisar</v-btn>
+          <v-btn color="#560894" type="submit" :loading="loading">Pesquisar</v-btn>
           <v-btn variant="text" @click="clearFilters">Limpar</v-btn>
         </div>
       </v-form>

@@ -16,7 +16,7 @@ export default createVuetify({
       estoqueTheme: {
         dark: false,
         colors: {
-          primary: '#176B52',
+          primary: '#560894',
           secondary: '#D98B3A',
           background: '#F4F7F5',
           surface: '#FFFFFF',

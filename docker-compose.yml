@@ -27,6 +27,7 @@ services:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-estoque}:${POSTGRES_PASSWORD:-estoque123}@db:5432/${POSTGRES_DB:-gerenciamento_estoque}
+      AUTO_SEED: ${AUTO_SEED:-true}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:

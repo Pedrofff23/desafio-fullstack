@@ -7,7 +7,7 @@ class LoginRequest(BaseModel):
     """Credenciais para autenticação."""
 
     email: EmailStr
-    senha: str = Field(..., min_length=6, max_length=128)
+    senha: str = Field(min_length=6, max_length=128)
 
 
 class TokenResponse(BaseModel):

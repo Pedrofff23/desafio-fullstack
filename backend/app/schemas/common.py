@@ -23,4 +23,4 @@ class PaginatedResponse[T](BaseModel):
 class MessageResponse(BaseModel):
     """Resposta simples com mensagem."""
 
-    message: str = Field(..., examples=["Operação realizada com sucesso."])
+    message: str = Field(examples=["Operação realizada com sucesso."])
