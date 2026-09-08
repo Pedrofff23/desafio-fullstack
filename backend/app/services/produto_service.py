@@ -1,18 +1,14 @@
-"""Service de produtos, lotes e catálogo.
+"""Service de produtos e catálogos auxiliares.
 
-Responsável pelo CRUD, pela composição alimentícia, pelo saldo dos produtos e
-pela situação individual de validade e estoque dos lotes.
+Responsável pelo CRUD, pela composição alimentícia e pelo saldo dos produtos.
 """
-
-from datetime import date
-from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.lote import Lote
 from app.models.produto import (
-    Lote,
     Nutriente,
     Produto,
     ProdutoAlergeno,
@@ -26,9 +22,6 @@ from app.schemas.produto import (
     IngredienteOut,
     ListaCatalogo,
     LocalizacaoOut,
-    LoteCreate,
-    LoteLocalizacaoOut,
-    LoteOut,
     NutrienteInput,
     NutrienteOut,
     ProdutoCreate,
@@ -39,8 +32,6 @@ from app.schemas.produto import (
     UnidadeMedidaOut,
 )
 
-# Limiar em dias para considerar validade "próxima do vencimento".
-LIMIAR_VALIDADE_DIAS = 30
 LIMIAR_ESTOQUE_BAIXO = 5
 STATUS_VALIDOS = {"ok", "estoque_baixo", "zerado"}
 
@@ -129,35 +120,6 @@ class ProdutoService:
             prateleira=prateleira.nome,
             nivel=prateleira.nivel,
             descricao=prateleira.descricao,
-        )
-
-    @staticmethod
-    def _lote_out(lote: Lote, localizacoes: list[dict[str, Any]]) -> LoteOut:
-        quantidade = sum(item["quantidade"] for item in localizacoes)
-        dias_para_vencer = None
-        status_validade = "sem_validade"
-        if lote.data_validade is not None:
-            dias_para_vencer = (lote.data_validade - date.today()).days
-            if dias_para_vencer < 0:
-                status_validade = "vencido"
-            elif dias_para_vencer < LIMIAR_VALIDADE_DIAS:
-                status_validade = "validade_proxima"
-            else:
-                status_validade = "normal"
-        return LoteOut(
-            id=lote.id,
-            produto_id=lote.produto_id,
-            numero_lote=lote.numero_lote,
-            data_producao=lote.data_producao,
-            data_validade=lote.data_validade,
-            ativo=lote.ativo,
-            quantidade_estoque=quantidade,
-            status_estoque="com_estoque" if quantidade > 0 else "sem_estoque",
-            dias_para_vencer=dias_para_vencer,
-            status_validade=status_validade,
-            localizacoes=[
-                LoteLocalizacaoOut.model_validate(item) for item in localizacoes
-            ],
         )
 
     async def _validar_referencias_alimenticias(
@@ -409,36 +371,3 @@ class ProdutoService:
         produto.ativo = False
         await self.repo.soft_delete(produto_id, excluido_por)
         await self.session.commit()
-
-    # ------------------------------------------------------------------
-    # Lotes
-    # ------------------------------------------------------------------
-    async def criar_lote(
-        self, produto_id: int, data: LoteCreate, excluido_por: int | None = None
-    ) -> LoteOut:
-        produto = await self.repo.get(produto_id)
-        if produto is None or produto.excluido_em is not None:
-            raise HTTPException(status_code=404, detail="Produto não encontrado")
-        if produto.perecivel and data.data_validade is None:
-            raise HTTPException(
-                status_code=422,
-                detail="Produto perecível exige data de validade no lote",
-            )
-        lote = Lote(produto_id=produto_id, **data.model_dump())
-        try:
-            await self.repo.add_lote(lote)
-            await self.session.commit()
-        except IntegrityError as exc:
-            await self.session.rollback()
-            raise HTTPException(
-                status_code=409, detail="Número de lote já cadastrado"
-            ) from exc
-        return self._lote_out(lote, [])
-
-    async def listar_lotes(self, produto_id: int) -> list[LoteOut]:
-        produto = await self.repo.get(produto_id)
-        if produto is None or produto.excluido_em is not None:
-            raise HTTPException(status_code=404, detail="Produto não encontrado")
-        lotes = await self.repo.list_lotes_do_produto(produto_id)
-        estoques = await self.repo.estoques_lotes(produto_id)
-        return [self._lote_out(lote, estoques.get(lote.id, [])) for lote in lotes]

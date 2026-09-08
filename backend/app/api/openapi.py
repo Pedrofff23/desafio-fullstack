@@ -55,7 +55,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": SUPPLIERS_TAG,
-        "description": "Cadastro e consulta dos fornecedores das entradas de estoque.",
+        "description": "Cadastro e manutenção dos fornecedores das entradas de estoque.",
     },
     {
         "name": INVENTORY_MOVEMENTS_TAG,

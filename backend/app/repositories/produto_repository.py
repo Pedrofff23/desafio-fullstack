@@ -1,17 +1,15 @@
-"""Repositório de produtos, lotes e catálogo."""
-
-from typing import Any
+"""Repositório de produtos e catálogos auxiliares."""
 
 from sqlalchemy import BigInteger, and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.lote import Lote
 from app.models.produto import (
     Alergeno,
     Categoria,
     Ingrediente,
     LocalizacaoEstoque,
-    Lote,
     Prateleira,
     Produto,
     ProdutoAlergeno,
@@ -199,9 +197,6 @@ class ProdutoRepository(BaseRepository[Produto]):
                 return False
         return True
 
-    async def get_lote(self, lote_id: int) -> Lote | None:
-        return await self.session.get(Lote, lote_id)
-
     async def add_lote(self, lote: Lote) -> Lote:
         self.session.add(lote)
         await self.session.flush()
@@ -209,14 +204,6 @@ class ProdutoRepository(BaseRepository[Produto]):
 
     async def get_localizacao(self, localizacao_id: int) -> LocalizacaoEstoque | None:
         return await self.session.get(LocalizacaoEstoque, localizacao_id)
-
-    async def list_lotes_do_produto(self, produto_id: int) -> list[Lote]:
-        result = await self.session.execute(
-            select(Lote)
-            .where(Lote.produto_id == produto_id, Lote.excluido_em.is_(None))
-            .order_by(Lote.data_validade.asc().nulls_last(), Lote.id)
-        )
-        return list(result.scalars().all())
 
     async def saldos_produtos(self, produto_ids: list[int]) -> dict[int, float]:
         """Retorna o saldo total dos produtos sem criar outra fonte de verdade."""
@@ -246,53 +233,3 @@ class ProdutoRepository(BaseRepository[Produto]):
             .group_by(Lote.produto_id)
         )
         return {int(row[0]): int(row[1]) for row in rows.all()}
-
-    async def estoques_lotes(self, produto_id: int) -> dict[int, list[dict[str, Any]]]:
-        """Agrupa o saldo de cada lote pelas localizações das entradas."""
-        rows = await self.session.execute(
-            text("""
-                SELECT
-                    ee.lote_id,
-                    ee.localizacao_id,
-                    le.prateleira_id,
-                    cr.nome AS corredor,
-                    s.nome AS seccao,
-                    pr.nome AS prateleira,
-                    pr.nivel,
-                    pr.descricao,
-                    SUM(ee.quantidade) AS quantidade
-                FROM estoque_entrada ee
-                JOIN localizacoes_estoque le ON le.id = ee.localizacao_id
-                JOIN prateleiras pr ON pr.id = le.prateleira_id
-                JOIN seccoes s ON s.id = pr.seccao_id
-                JOIN corredores cr ON cr.id = s.corredor_id
-                WHERE ee.produto_id = :produto_id
-                  AND ee.quantidade > 0
-                GROUP BY
-                    ee.lote_id,
-                    ee.localizacao_id,
-                    le.prateleira_id,
-                    cr.nome,
-                    s.nome,
-                    pr.nome,
-                    pr.nivel,
-                    pr.descricao
-                ORDER BY ee.lote_id, cr.nome, s.nome, pr.nome
-                """),
-            {"produto_id": produto_id},
-        )
-        por_lote: dict[int, list[dict[str, Any]]] = {}
-        for row in rows.mappings():
-            por_lote.setdefault(int(row["lote_id"]), []).append(
-                {
-                    "id": int(row["localizacao_id"]),
-                    "prateleira_id": int(row["prateleira_id"]),
-                    "corredor": row["corredor"],
-                    "seccao": row["seccao"],
-                    "prateleira": row["prateleira"],
-                    "nivel": row["nivel"],
-                    "descricao": row["descricao"],
-                    "quantidade": float(row["quantidade"]),
-                }
-            )
-        return por_lote

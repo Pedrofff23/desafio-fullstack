@@ -11,23 +11,20 @@ Regras:
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.localidade import Contato, Endereco
 from app.models.transacao import (
-    Fornecedor,
     RegistroEntrada,
     RegistroSaida,
 )
-from app.repositories.localidade_repository import LocalidadeRepository
+from app.repositories.fornecedor_repository import FornecedorRepository
+from app.repositories.lote_repository import LoteRepository
 from app.repositories.produto_repository import ProdutoRepository
 from app.repositories.transacao_repository import TransacaoRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
     EstoqueEntradaOut,
-    FornecedorCreate,
-    FornecedorOut,
     MovimentoOut,
     RegistroEntradaCreate,
     RegistroEntradaOut,
@@ -42,45 +39,9 @@ class TransacaoService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repo = TransacaoRepository(session)
-        self.localidade_repo = LocalidadeRepository(session)
+        self.fornecedor_repo = FornecedorRepository(session)
+        self.lote_repo = LoteRepository(session)
         self.produto_repo = ProdutoRepository(session)
-
-    # ------------------------------------------------------------------
-    # Fornecedores
-    # ------------------------------------------------------------------
-    async def criar_fornecedor(self, data: FornecedorCreate) -> FornecedorOut:
-        if not await self.localidade_repo.cidade_pertence_ao_estado(
-            data.endereco.cidade_id, data.endereco.estado_id
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="A cidade informada não pertence ao estado selecionado",
-            )
-        endereco = Endereco(**data.endereco.model_dump(exclude={"estado_id"}))
-        contato = Contato(**data.contato.model_dump())
-        fornecedor = Fornecedor(
-            nome_empresa=data.nome_empresa,
-            contato=contato,
-            endereco=endereco,
-            ativo=data.ativo,
-        )
-        try:
-            fornecedor = await self.repo.add_fornecedor(fornecedor)
-            await self.session.commit()
-        except IntegrityError as exc:
-            await self.session.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail="Fornecedor, contato ou endereço já cadastrado",
-            ) from exc
-        fornecedor = await self.repo.get_fornecedor(fornecedor.id)
-        return FornecedorOut.model_validate(fornecedor, from_attributes=True)
-
-    async def listar_fornecedores(self) -> list[FornecedorOut]:
-        fornecedores = await self.repo.list_fornecedores()
-        return [
-            FornecedorOut.model_validate(f, from_attributes=True) for f in fornecedores
-        ]
 
     # ------------------------------------------------------------------
     # Entrada
@@ -88,7 +49,7 @@ class TransacaoService:
     async def registrar_entrada(
         self, data: RegistroEntradaCreate, funcionario_id: int
     ) -> RegistroEntradaOut:
-        lote = await self.produto_repo.get_lote(data.lote_id)
+        lote = await self.lote_repo.get(data.lote_id)
         if lote is None or lote.excluido_em is not None or not lote.ativo:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
 
@@ -96,7 +57,7 @@ class TransacaoService:
         if produto is None or produto.excluido_em is not None or not produto.ativo:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-        fornecedor = await self.repo.get_fornecedor(data.fornecedor_id)
+        fornecedor = await self.fornecedor_repo.obter(data.fornecedor_id)
         if fornecedor is None or not fornecedor.ativo:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
 
@@ -136,7 +97,7 @@ class TransacaoService:
         if entrada is None:
             raise HTTPException(status_code=404, detail="Entrada não encontrada")
 
-        lote = await self.produto_repo.get_lote(entrada.lote_id)
+        lote = await self.lote_repo.get(entrada.lote_id)
         if lote is None or lote.excluido_em is not None or not lote.ativo:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
         produto = await self.produto_repo.get(lote.produto_id)

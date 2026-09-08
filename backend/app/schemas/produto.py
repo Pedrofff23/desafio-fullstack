@@ -1,9 +1,10 @@
 """DTOs do módulo de produtos, lotes e catálogo."""
 
-from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.schemas.lote import LoteInput
 
 
 class UnidadeMedidaOut(BaseModel):
@@ -68,19 +69,6 @@ class ProdutoIngredienteInput(BaseModel):
 class ProdutoIngredienteOut(ProdutoIngredienteInput):
     nome: str
     descricao: str | None = None
-
-
-class LoteInput(BaseModel):
-    numero_lote: str = Field(min_length=1, max_length=50)
-    data_producao: date
-    data_validade: date | None = None
-    ativo: bool = True
-
-    @model_validator(mode="after")
-    def _validade_apos_producao(self) -> "LoteInput":
-        if self.data_validade is not None and self.data_validade < self.data_producao:
-            raise ValueError("Data de validade não pode ser anterior à produção")
-        return self
 
 
 class ProdutoCreate(BaseModel):
@@ -187,30 +175,6 @@ class ProdutoOut(BaseModel):
     nutrientes: list[NutrienteOut] = Field(default_factory=list)
     ingredientes: list[ProdutoIngredienteOut] = Field(default_factory=list)
     alergenos: list[AlergenoOut] = Field(default_factory=list)
-
-
-class LoteCreate(LoteInput):
-    """Criação de lote (validade é propriedade do lote)."""
-
-
-class LoteLocalizacaoOut(LocalizacaoOut):
-    quantidade: float
-
-
-class LoteOut(BaseModel):
-    id: int
-    produto_id: int
-    numero_lote: str
-    data_producao: date
-    data_validade: date | None
-    ativo: bool
-    quantidade_estoque: float = 0
-    status_estoque: Literal["com_estoque", "sem_estoque"] = "sem_estoque"
-    dias_para_vencer: int | None = None
-    status_validade: Literal[
-        "normal", "validade_proxima", "vencido", "sem_validade"
-    ] = "sem_validade"
-    localizacoes: list[LoteLocalizacaoOut] = Field(default_factory=list)
 
 
 class ListaCatalogo(BaseModel):

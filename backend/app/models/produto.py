@@ -1,12 +1,11 @@
 """Models de catálogo e estoque físico: UnidadeMedida, Categoria, Alergeno,
-Ingrediente, Corredor, Seccao, Prateleira, LocalizacaoEstoque, Produto, Lote."""
+Ingrediente, Corredor, Seccao, Prateleira, LocalizacaoEstoque e Produto."""
 
-from datetime import date, datetime
+from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    Date,
     DateTime,
     ForeignKey,
     Identity,
@@ -165,7 +164,7 @@ class Produto(Base):
     unidade_medida: Mapped["UnidadeMedida"] = relationship()
     categoria: Mapped["Categoria"] = relationship()
     localizacao: Mapped["LocalizacaoEstoque"] = relationship()
-    lotes: Mapped[list["Lote"]] = relationship(back_populates="produto")
+    lotes: Mapped[list["Lote"]] = relationship(back_populates="produto")  # noqa: F821
     nutrientes: Mapped[list["Nutriente"]] = relationship(
         back_populates="produto",
         cascade="all, delete-orphan",
@@ -184,28 +183,6 @@ class Produto(Base):
     )
 
     __table_args__ = (Index("idx_produto_categoria", "categoria_id"),)
-
-
-class Lote(Base):
-    __tablename__ = "lotes"
-
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
-    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False)
-    numero_lote: Mapped[str] = mapped_column(String(50), nullable=False)
-    data_producao: Mapped[date] = mapped_column(Date, nullable=False)
-    data_validade: Mapped[date | None] = mapped_column(Date)
-    ativo: Mapped[bool] = mapped_column(Boolean, server_default=true(), nullable=False)
-    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    excluido_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
-
-    __table_args__ = (
-        UniqueConstraint(
-            "produto_id", "numero_lote", name="lotes_produto_id_numero_lote_key"
-        ),
-        Index("idx_lote_validade", "data_validade"),
-    )
-
-    produto: Mapped["Produto"] = relationship(back_populates="lotes")
 
 
 class Nutriente(Base):

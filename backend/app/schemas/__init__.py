@@ -2,16 +2,15 @@
 
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.common import MessageResponse, PaginatedResponse
+from app.schemas.fornecedor import FornecedorCreate, FornecedorOut, FornecedorUpdate
 from app.schemas.localidade import CidadeOut, EstadoOut
+from app.schemas.lote import LoteCreate, LoteLocalizacaoOut, LoteOut, LoteUpdate
 from app.schemas.produto import (
     AlergenoOut,
     CategoriaOut,
     IngredienteOut,
     ListaCatalogo,
     LocalizacaoOut,
-    LoteCreate,
-    LoteLocalizacaoOut,
-    LoteOut,
     NutrienteInput,
     NutrienteOut,
     ProdutoCreate,
@@ -24,8 +23,6 @@ from app.schemas.produto import (
 from app.schemas.transacao import (
     EstoqueEntradaOut,
     EstoqueProdutoOut,
-    FornecedorCreate,
-    FornecedorOut,
     MovimentoOut,
     RegistroEntradaCreate,
     RegistroEntradaOut,
@@ -48,6 +45,7 @@ __all__ = [
     "EstoqueProdutoOut",
     "FornecedorCreate",
     "FornecedorOut",
+    "FornecedorUpdate",
     "IngredienteOut",
     "ListaCatalogo",
     "LocalizacaoOut",
@@ -55,6 +53,7 @@ __all__ = [
     "LoteCreate",
     "LoteLocalizacaoOut",
     "LoteOut",
+    "LoteUpdate",
     "MessageResponse",
     "MovimentoOut",
     "PaginatedResponse",

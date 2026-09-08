@@ -1,21 +1,14 @@
-"""Rotas de CRUD de produtos e lotes."""
+"""Rotas do CRUD de produtos e dos catálogos auxiliares."""
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.openapi import CATALOGS_TAG, LOTS_TAG, PRODUCTS_TAG
+from app.api.openapi import CATALOGS_TAG, PRODUCTS_TAG
 from app.core.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.common import MessageResponse, PaginatedResponse
-from app.schemas.produto import (
-    ListaCatalogo,
-    LoteCreate,
-    LoteOut,
-    ProdutoCreate,
-    ProdutoOut,
-    ProdutoUpdate,
-)
+from app.schemas.produto import ListaCatalogo, ProdutoCreate, ProdutoOut, ProdutoUpdate
 from app.services.produto_service import ProdutoService
 
 router = APIRouter(prefix="/produtos")
@@ -131,7 +124,9 @@ async def atualizar(
     summary="Excluir produto",
     responses={
         status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
-        status.HTTP_409_CONFLICT: {"description": "Produto ainda possui saldo em estoque"},
+        status.HTTP_409_CONFLICT: {
+            "description": "Produto ainda possui saldo em estoque"
+        },
     },
 )
 async def excluir(
@@ -141,44 +136,3 @@ async def excluir(
 ) -> MessageResponse:
     await ProdutoService(db).excluir(produto_id, excluido_por=current.id)
     return MessageResponse(message="Produto excluído com sucesso.")
-
-
-# ---------------------------------------------------------------------------
-# Lotes
-# ---------------------------------------------------------------------------
-
-
-@router.get(
-    "/{produto_id}/lotes",
-    response_model=list[LoteOut],
-    status_code=status.HTTP_200_OK,
-    tags=[LOTS_TAG],
-    summary="Listar lotes de um produto",
-    responses={
-        status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
-    },
-)
-async def listar_lotes(
-    produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
-) -> list[LoteOut]:
-    return await ProdutoService(db).listar_lotes(produto_id)
-
-
-@router.post(
-    "/{produto_id}/lotes",
-    response_model=LoteOut,
-    status_code=status.HTTP_201_CREATED,
-    tags=[LOTS_TAG],
-    summary="Cadastrar lote de um produto",
-    responses={
-        status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
-        status.HTTP_409_CONFLICT: {"description": "Lote já cadastrado"},
-    },
-)
-async def criar_lote(
-    produto_id: int,
-    payload: LoteCreate,
-    db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
-) -> LoteOut:
-    return await ProdutoService(db).criar_lote(produto_id, payload)

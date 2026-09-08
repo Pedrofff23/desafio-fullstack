@@ -1,6 +1,7 @@
-"""Rotas de movimentações de estoque, fornecedores e saldos."""
+"""Rotas de movimentações e consultas de estoque."""
 
 from datetime import datetime
+from typing import cast
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,6 @@ from app.api.deps import get_current_user
 from app.api.openapi import (
     INVENTORY_MOVEMENTS_TAG,
     INVENTORY_QUERIES_TAG,
-    SUPPLIERS_TAG,
 )
 from app.core.database import get_db
 from app.models.usuario import Usuario
@@ -17,8 +17,6 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.transacao import (
     EstoqueEntradaOut,
     EstoqueProdutoOut,
-    FornecedorCreate,
-    FornecedorOut,
     MovimentoOut,
     RegistroEntradaCreate,
     RegistroEntradaOut,
@@ -28,46 +26,6 @@ from app.schemas.transacao import (
 from app.services.transacao_service import TransacaoService
 
 router = APIRouter(prefix="/transacoes")
-
-
-# ---------------------------------------------------------------------------
-# Fornecedores
-# ---------------------------------------------------------------------------
-
-
-@router.get(
-    "/fornecedores",
-    status_code=status.HTTP_200_OK,
-    tags=[SUPPLIERS_TAG],
-    summary="Listar fornecedores",
-)
-async def listar_fornecedores(
-    db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
-) -> list[FornecedorOut]:
-    return await TransacaoService(db).listar_fornecedores()
-
-
-@router.post(
-    "/fornecedores",
-    response_model=FornecedorOut,
-    status_code=status.HTTP_201_CREATED,
-    tags=[SUPPLIERS_TAG],
-    summary="Cadastrar fornecedor",
-    responses={
-        status.HTTP_400_BAD_REQUEST: {
-            "description": "A cidade informada não pertence ao estado selecionado"
-        },
-        status.HTTP_409_CONFLICT: {
-            "description": "Fornecedor, contato ou endereço já cadastrado"
-        },
-    },
-)
-async def criar_fornecedor(
-    payload: FornecedorCreate,
-    db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
-) -> FornecedorOut:
-    return await TransacaoService(db).criar_fornecedor(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +112,10 @@ async def estoque_atual(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> PaginatedResponse[EstoqueProdutoOut]:
-    return await TransacaoService(db).estoque_atual(page=page, size=size)
+    return cast(
+        PaginatedResponse[EstoqueProdutoOut],
+        await TransacaoService(db).estoque_atual(page=page, size=size),
+    )
 
 
 @router.get(

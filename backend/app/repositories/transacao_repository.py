@@ -1,15 +1,14 @@
-"""Repositório de movimentações de estoque e fornecedores."""
+"""Repositório de movimentações e consultas de estoque."""
 
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, literal, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models.localidade import Endereco
-from app.models.produto import Lote, Produto
-from app.models.transacao import Fornecedor, RegistroEntrada, RegistroSaida
+from app.models.lote import Lote
+from app.models.produto import Produto
+from app.models.transacao import RegistroEntrada, RegistroSaida
 from app.models.usuario import Usuario
 from app.repositories.base import BaseRepository
 
@@ -41,40 +40,6 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         self.session.add(saida)
         await self.session.flush()
         return saida
-
-    # ------------------------------------------------------------------
-    # Fornecedores
-    # ------------------------------------------------------------------
-    async def list_fornecedores(self) -> list[Fornecedor]:
-        result = await self.session.execute(
-            select(Fornecedor)
-            .where(Fornecedor.excluido_em.is_(None))
-            .options(
-                selectinload(Fornecedor.contato),
-                selectinload(Fornecedor.endereco).selectinload(Endereco.cidade),
-            )
-            .order_by(Fornecedor.nome_empresa)
-        )
-        return list(result.scalars().all())
-
-    async def get_fornecedor(self, fornecedor_id: int) -> Fornecedor | None:
-        result = await self.session.execute(
-            select(Fornecedor)
-            .where(
-                Fornecedor.id == fornecedor_id,
-                Fornecedor.excluido_em.is_(None),
-            )
-            .options(
-                selectinload(Fornecedor.contato),
-                selectinload(Fornecedor.endereco).selectinload(Endereco.cidade),
-            )
-        )
-        return result.scalars().unique().one_or_none()
-
-    async def add_fornecedor(self, fornecedor: Fornecedor) -> Fornecedor:
-        self.session.add(fornecedor)
-        await self.session.flush()
-        return fornecedor
 
     # ------------------------------------------------------------------
     # Saldos (views criadas na migration)

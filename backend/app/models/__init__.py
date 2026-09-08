@@ -5,14 +5,15 @@ Alembic (autogenerate) e pelo `Base.metadata.create_all`.
 """
 
 from app.models.base import Base
+from app.models.fornecedor import Fornecedor
 from app.models.localidade import Cidade, Contato, Endereco, Estado, Pais
+from app.models.lote import Lote
 from app.models.produto import (
     Alergeno,
     Categoria,
     Corredor,
     Ingrediente,
     LocalizacaoEstoque,
-    Lote,
     Nutriente,
     Prateleira,
     Produto,
@@ -21,7 +22,7 @@ from app.models.produto import (
     Seccao,
     UnidadeMedida,
 )
-from app.models.transacao import Fornecedor, RegistroEntrada, RegistroSaida
+from app.models.transacao import RegistroEntrada, RegistroSaida
 from app.models.usuario import Funcionario, Sessao, Usuario
 
 __all__ = [
