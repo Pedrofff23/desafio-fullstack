@@ -1,6 +1,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
 
+import { listAllPages } from '@/api/pagination'
 import { produtosApi } from '@/api/produtos'
 import { transacoesApi, type HistoricoFilters } from '@/api/transacoes'
 import { usuariosApi } from '@/api/usuarios'
@@ -51,11 +52,11 @@ export default defineComponent({
   async mounted() {
     try {
       const [products, users] = await Promise.all([
-        produtosApi.listar({ page: 1, size: 100 }),
-        usuariosApi.listar({ page: 1, size: 100 }),
+        listAllPages(produtosApi.listar),
+        listAllPages(usuariosApi.listar),
       ])
-      this.products = products.items
-      this.users = users.items
+      this.products = products
+      this.users = users
       await this.load()
     } catch (error) {
       this.error = getErrorMessage(error)

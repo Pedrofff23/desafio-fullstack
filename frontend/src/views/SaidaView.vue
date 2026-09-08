@@ -1,6 +1,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
 
+import { listAllPages } from '@/api/pagination'
 import { produtosApi } from '@/api/produtos'
 import { transacoesApi } from '@/api/transacoes'
 import PageHeader from '@/components/PageHeader.vue'
@@ -50,8 +51,8 @@ export default defineComponent({
   },
   async mounted() {
     try {
-      const response = await produtosApi.listar({ page: 1, size: 100 })
-      this.products = response.items.filter((item) => item.ativo && item.quantidade_estoque > 0)
+      const products = await listAllPages(produtosApi.listar)
+      this.products = products.filter((item) => item.ativo && item.quantidade_estoque > 0)
     } catch (error) {
       this.error = getErrorMessage(error)
     } finally {

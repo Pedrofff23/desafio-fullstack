@@ -1,6 +1,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
 
+import { listAllPages } from '@/api/pagination'
 import { produtosApi } from '@/api/produtos'
 import { transacoesApi } from '@/api/transacoes'
 import PageHeader from '@/components/PageHeader.vue'
@@ -83,11 +84,11 @@ export default defineComponent({
   async mounted() {
     try {
       const [products, suppliers, catalog] = await Promise.all([
-        produtosApi.listar({ page: 1, size: 100 }),
+        listAllPages(produtosApi.listar),
         transacoesApi.fornecedores(),
         produtosApi.catalogo(),
       ])
-      this.products = products.items.filter((item) => item.ativo)
+      this.products = products.filter((item) => item.ativo)
       this.suppliers = suppliers.filter((item) => item.ativo)
       this.catalog = catalog
     } catch (error) {

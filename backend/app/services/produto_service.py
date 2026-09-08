@@ -397,9 +397,16 @@ class ProdutoService:
         return await self.obter(produto_id)
 
     async def excluir(self, produto_id: int, excluido_por: int | None = None) -> None:
-        produto = await self.repo.get(produto_id)
+        produto = await self.repo.get_for_update(produto_id)
         if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
+        saldos = await self.repo.saldos_produtos([produto_id])
+        if saldos.get(produto_id, 0) > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Não é possível excluir produto com saldo em estoque",
+            )
+        produto.ativo = False
         await self.repo.soft_delete(produto_id, excluido_por)
         await self.session.commit()
 

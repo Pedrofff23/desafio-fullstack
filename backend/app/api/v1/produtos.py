@@ -131,6 +131,7 @@ async def atualizar(
     summary="Excluir produto",
     responses={
         status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
+        status.HTTP_409_CONFLICT: {"description": "Produto ainda possui saldo em estoque"},
     },
 )
 async def excluir(

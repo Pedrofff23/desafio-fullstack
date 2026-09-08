@@ -2,6 +2,7 @@
 import { defineComponent } from 'vue'
 
 import { produtosApi } from '@/api/produtos'
+import CurrencyField from '@/components/CurrencyField.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import type {
   CatalogoProduto,
@@ -33,14 +34,14 @@ function emptyNutrient(): NutrienteInput {
 
 export default defineComponent({
   name: 'ProdutoFormView',
-  components: { PageHeader },
+  components: { CurrencyField, PageHeader },
   data() {
     return {
       form: {
         codigo: '',
         nome: '',
         descricao: null as string | null,
-        preco: 0,
+        preco: 0 as number | null,
         perecivel: false,
         unidade_medida_id: null as number | null,
         categoria_id: null as number | null,
@@ -146,8 +147,8 @@ export default defineComponent({
         this.error = 'Preencha todos os campos obrigatórios.'
         return false
       }
-      if (this.form.preco < 0) {
-        this.error = 'O preço não pode ser negativo.'
+      if (this.form.preco === null || !Number.isFinite(this.form.preco) || this.form.preco < 0) {
+        this.error = 'Informe um preço válido e não negativo.'
         return false
       }
       if (!this.editing && this.includeLot && (!this.lot.numero_lote || !this.lot.data_producao)) {
@@ -232,14 +233,7 @@ export default defineComponent({
             ><v-textarea v-model="form.descricao" label="Descrição" rows="2"
           /></v-col>
           <v-col cols="12" md="4"
-            ><v-text-field
-              v-model.number="form.preco"
-              type="number"
-              min="0"
-              step="0.01"
-              prefix="R$"
-              label="Preço atual"
-              required
+            ><CurrencyField v-model="form.preco" label="Preço atual" required
           /></v-col>
           <v-col cols="12" md="4"
             ><v-select

@@ -96,19 +96,22 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         """Lista entradas que ainda possuem saldo para uma futura saída."""
 
         filtro_produto = (
-            " AND produto_id = :produto_id" if produto_id is not None else ""
+            " AND ee.produto_id = :produto_id" if produto_id is not None else ""
         )
         query = text(f"""
             SELECT
-                entrada_id,
-                lote_id,
-                produto_id,
-                fornecedor_id,
-                localizacao_id,
-                quantidade
-            FROM estoque_entrada
-            WHERE quantidade > 0{filtro_produto}
-            ORDER BY produto_id, lote_id, entrada_id
+                ee.entrada_id,
+                ee.lote_id,
+                ee.produto_id,
+                ee.fornecedor_id,
+                ee.localizacao_id,
+                ee.quantidade
+            FROM estoque_entrada ee
+            JOIN lotes l ON l.id = ee.lote_id
+            JOIN produtos p ON p.id = ee.produto_id
+            WHERE ee.quantidade > 0 AND p.ativo AND l.ativo
+              AND p.excluido_em IS NULL AND l.excluido_em IS NULL{filtro_produto}
+            ORDER BY ee.produto_id, ee.lote_id, ee.entrada_id
             """)
         params = {"produto_id": produto_id} if produto_id is not None else {}
         rows = await self.session.execute(query, params)

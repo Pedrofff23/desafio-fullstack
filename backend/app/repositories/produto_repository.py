@@ -30,6 +30,15 @@ class ProdutoRepository(BaseRepository[Produto]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(Produto, session)
 
+    async def get_for_update(self, produto_id: int) -> Produto | None:
+        result = await self.session.execute(
+            select(Produto)
+            .where(Produto.id == produto_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_codigo(self, codigo: str) -> Produto | None:
         stmt = select(Produto).where(Produto.codigo == codigo)
         result = await self.session.execute(stmt)

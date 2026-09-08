@@ -92,7 +92,7 @@ class TransacaoService:
         if lote is None or lote.excluido_em is not None or not lote.ativo:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
 
-        produto = await self.produto_repo.get(lote.produto_id)
+        produto = await self.produto_repo.get_for_update(lote.produto_id)
         if produto is None or produto.excluido_em is not None or not produto.ativo:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
@@ -135,6 +135,13 @@ class TransacaoService:
         entrada = await self.repo.get_entrada(data.entrada_id)
         if entrada is None:
             raise HTTPException(status_code=404, detail="Entrada não encontrada")
+
+        lote = await self.produto_repo.get_lote(entrada.lote_id)
+        if lote is None or lote.excluido_em is not None or not lote.ativo:
+            raise HTTPException(status_code=404, detail="Lote não encontrado")
+        produto = await self.produto_repo.get(lote.produto_id)
+        if produto is None or produto.excluido_em is not None or not produto.ativo:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
 
         saldo = await self.repo.saldo_entrada(data.entrada_id)
         if data.quantidade > saldo:
