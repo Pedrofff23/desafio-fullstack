@@ -223,81 +223,117 @@ export default defineComponent({
     <v-card v-else class="data-card pa-5 pa-md-7">
       <v-form @submit.prevent="submit">
         <v-row>
-          <v-col cols="12" md="4"
-            ><v-text-field v-model.trim="form.codigo" label="Código" required
-          /></v-col>
-          <v-col cols="12" md="8"
-            ><v-text-field v-model.trim="form.nome" label="Nome do produto" required
-          /></v-col>
-          <v-col cols="12"
-            ><v-textarea v-model="form.descricao" label="Descrição" rows="2"
-          /></v-col>
-          <v-col cols="12" md="4"
-            ><CurrencyField v-model="form.preco" label="Preço atual" required
-          /></v-col>
-          <v-col cols="12" md="4"
-            ><v-select
+          <v-col cols="12" md="4">
+            <v-text-field
+              v-model.trim="form.codigo"
+              label="Código"
+              required
+              :rules="[(v) => !!v || 'Código é obrigatório']"
+            />
+          </v-col>
+          <v-col cols="12" md="8">
+            <v-text-field
+              v-model.trim="form.nome"
+              label="Nome do produto"
+              required
+              :rules="[(v) => !!v || 'Nome do produto é obrigatório']"
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-textarea v-model="form.descricao" label="Descrição" rows="2" />
+          </v-col>
+          <v-col cols="12" md="4">
+            <CurrencyField
+              v-model="form.preco"
+              label="Preço atual"
+              required
+              :rules="[(v) => (v !== null && v !== '' && v !== undefined) || 'Preço atual é obrigatório']"
+            />
+          </v-col>
+          <v-col cols="12" md="4">
+            <v-select
               v-model="form.unidade_medida_id"
               :items="catalog.unidades_medida"
               item-title="descricao"
               item-value="id"
               label="Unidade de medida"
               required
-          /></v-col>
-          <v-col cols="12" md="4"
-            ><v-select
+              :rules="[(v) => !!v || 'Unidade de medida é obrigatória']"
+            />
+          </v-col>
+          <v-col cols="12" md="4">
+            <v-select
               v-model="form.categoria_id"
               :items="catalog.categorias"
               item-title="nome"
               item-value="id"
               label="Categoria"
               required
-          /></v-col>
-          <v-col cols="12" md="4"
-            ><v-select
+              :rules="[(v) => !!v || 'Categoria é obrigatória']"
+            />
+          </v-col>
+          <v-col cols="12" md="4">
+            <v-select
               v-model="form.localizacao_id"
               :items="catalog.localizacoes"
               :item-title="locationLabel"
               item-value="id"
               label="Localização preferencial"
               required
-          /></v-col>
-          <v-col cols="6" md="4"
-            ><v-switch
+              :rules="[(v) => !!v || 'Localização preferencial é obrigatória']"
+            />
+          </v-col>
+          <v-col cols="6" md="4">
+            <v-switch
               v-model="form.perecivel"
               color="primary"
               label="Produto perecível"
               inset
               :disabled="editing"
-          /></v-col>
-          <v-col cols="6" md="4"
-            ><v-switch v-model="form.ativo" color="primary" label="Produto ativo" inset
-          /></v-col>
+            />
+          </v-col>
+          <v-col cols="6" md="4">
+            <v-switch v-model="form.ativo" color="primary" label="Produto ativo" inset />
+          </v-col>
 
           <template v-if="!editing">
             <v-col cols="12"><v-divider class="my-2" /></v-col>
-            <v-col cols="12"
-              ><v-switch
+            <v-col cols="12">
+              <v-switch
                 v-model="includeLot"
                 color="primary"
                 label="Cadastrar lote inicial"
                 inset
                 :disabled="form.perecivel"
-            /></v-col>
+              />
+            </v-col>
             <template v-if="includeLot">
-              <v-col cols="12" md="5"
-                ><v-text-field v-model.trim="lot.numero_lote" label="Número do lote" required
-              /></v-col>
-              <v-col cols="6" md="3"
-                ><v-text-field v-model="lot.data_producao" type="date" label="Produção" required
-              /></v-col>
-              <v-col cols="6" md="4"
-                ><v-text-field
+              <v-col cols="12" md="5">
+                <v-text-field
+                  v-model.trim="lot.numero_lote"
+                  label="Número do lote"
+                  required
+                  :rules="[(v) => !!v || 'Número do lote é obrigatório']"
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  v-model="lot.data_producao"
+                  type="date"
+                  label="Produção"
+                  required
+                  :rules="[(v) => !!v || 'Produção é obrigatória']"
+                />
+              </v-col>
+              <v-col cols="6" md="4">
+                <v-text-field
                   v-model="lot.data_validade"
                   type="date"
                   label="Validade"
                   :required="form.perecivel"
-              /></v-col>
+                  :rules="form.perecivel ? [(v) => !!v || 'Validade é obrigatória'] : []"
+                />
+              </v-col>
             </template>
           </template>
 

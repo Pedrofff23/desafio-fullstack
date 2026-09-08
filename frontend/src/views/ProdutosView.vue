@@ -419,10 +419,21 @@ export default defineComponent({
           <div class="text-subtitle-1 font-weight-bold mb-3">Cadastrar lote</div>
           <v-row>
             <v-col cols="12" md="5">
-              <v-text-field v-model.trim="lotForm.numero_lote" label="Número do lote" />
+              <v-text-field
+                v-model.trim="lotForm.numero_lote"
+                label="Número do lote"
+                required
+                :rules="[(v) => !!v || 'Número do lote é obrigatório']"
+              />
             </v-col>
             <v-col cols="6" md="3">
-              <v-text-field v-model="lotForm.data_producao" type="date" label="Produção" />
+              <v-text-field
+                v-model="lotForm.data_producao"
+                type="date"
+                label="Produção"
+                required
+                :rules="[(v) => !!v || 'Produção é obrigatória']"
+              />
             </v-col>
             <v-col cols="6" md="4">
               <v-text-field
@@ -430,6 +441,7 @@ export default defineComponent({
                 type="date"
                 label="Validade"
                 :required="selectedProduct?.perecivel"
+                :rules="selectedProduct?.perecivel ? [(v) => !!v || 'Validade é obrigatória'] : []"
               />
             </v-col>
           </v-row>

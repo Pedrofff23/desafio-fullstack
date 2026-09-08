@@ -203,15 +203,17 @@ export default defineComponent({
     <v-card v-else class="data-card pa-5 pa-md-7">
       <v-form @submit.prevent="submit">
         <v-row>
-          <v-col cols="12" md="6"
-            ><v-autocomplete
+          <v-col cols="12" md="6">
+            <v-autocomplete
               v-model="productId"
               :items="products"
               item-title="nome"
               item-value="id"
               label="Produto"
               required
-          /></v-col>
+              :rules="[(v) => !!v || 'Produto é obrigatório']"
+            />
+          </v-col>
           <v-col cols="12" md="6">
             <div class="d-flex align-start ga-2">
               <v-select
@@ -223,6 +225,7 @@ export default defineComponent({
                 :loading="loadingLots"
                 :disabled="!productId"
                 required
+                :rules="[(v) => !!v || 'Lote é obrigatório']"
                 class="flex-grow-1"
                 hide-details="auto"
               />
@@ -255,17 +258,19 @@ export default defineComponent({
               </a>
             </v-alert>
           </v-col>
-          <v-col cols="12" md="6"
-            ><v-autocomplete
+          <v-col cols="12" md="6">
+            <v-autocomplete
               v-model="form.fornecedor_id"
               :items="suppliers"
               item-title="nome_empresa"
               item-value="id"
               label="Fornecedor"
               required
-          /></v-col>
-          <v-col cols="12" md="6"
-            ><v-select
+              :rules="[(v) => !!v || 'Fornecedor é obrigatório']"
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-select
               v-model="form.localizacao_id"
               :items="catalog.localizacoes"
               :item-title="locationLabel"
@@ -274,27 +279,36 @@ export default defineComponent({
               clearable
               hint="Vazia: usa a localização preferencial do produto"
               persistent-hint
-          /></v-col>
-          <v-col cols="12" md="3"
-            ><v-text-field
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field
               v-model.number="form.quantidade"
               type="number"
               min="0.001"
               step="0.001"
               label="Quantidade"
               required
-          /></v-col>
-          <v-col cols="12" md="3"
-            ><v-text-field
+              :rules="[(v) => !!v || 'Quantidade é obrigatória']"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field
               v-model="transactionDate"
               type="datetime-local"
               label="Data e hora (opcional)"
-          /></v-col>
-          <v-col cols="12" md="3"
-            ><v-text-field v-model.trim="form.tipo_entrada" label="Tipo de entrada" required
-          /></v-col>
-          <v-col cols="6" md="3"
-            ><v-text-field
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field
+              v-model.trim="form.tipo_entrada"
+              label="Tipo de entrada"
+              required
+              :rules="[(v) => !!v || 'Tipo de entrada é obrigatório']"
+            />
+          </v-col>
+          <v-col cols="6" md="3">
+            <v-text-field
               v-model.number="form.preco_custo"
               type="number"
               min="0"
@@ -302,7 +316,9 @@ export default defineComponent({
               prefix="R$"
               label="Preço de custo"
               required
-          /></v-col>
+              :rules="[(v) => (v !== null && v !== '' && v !== undefined) || 'Preço de custo é obrigatório']"
+            />
+          </v-col>
           <v-col cols="12" md="9"
             ><v-textarea v-model="form.observacao" label="Observação" rows="2" maxlength="500"
           /></v-col>
@@ -343,7 +359,12 @@ export default defineComponent({
 
           <v-row>
             <v-col cols="12">
-              <v-text-field v-model.trim="newLotForm.numero_lote" label="Número do lote" required />
+              <v-text-field
+                v-model.trim="newLotForm.numero_lote"
+                label="Número do lote"
+                required
+                :rules="[(v) => !!v || 'Número do lote é obrigatório']"
+              />
             </v-col>
             <v-col cols="12" sm="6">
               <v-text-field
@@ -351,6 +372,7 @@ export default defineComponent({
                 type="date"
                 label="Data de fabricação / produção"
                 required
+                :rules="[(v) => !!v || 'Data de fabricação / produção é obrigatória']"
               />
             </v-col>
             <v-col cols="12" sm="6">
@@ -359,6 +381,7 @@ export default defineComponent({
                 type="date"
                 label="Data de validade"
                 :required="selectedProduct?.perecivel"
+                :rules="selectedProduct?.perecivel ? [(v) => !!v || 'Data de validade é obrigatória'] : []"
               />
             </v-col>
           </v-row>

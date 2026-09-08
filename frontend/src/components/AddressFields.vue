@@ -94,6 +94,7 @@ export default defineComponent({
         label="Estado"
         :loading="loadingStates"
         required
+        :rules="[(v) => !!v || 'Estado é obrigatório']"
       />
     </v-col>
     <v-col cols="12" md="6">
@@ -106,16 +107,32 @@ export default defineComponent({
         :loading="loadingCities"
         :disabled="!localAddress.estado_id"
         required
+        :rules="[(v) => !!v || 'Cidade é obrigatória']"
       />
     </v-col>
     <v-col cols="12" md="8">
-      <v-text-field v-model="localAddress.logradouro" label="Logradouro" required />
+      <v-text-field
+        v-model="localAddress.logradouro"
+        label="Logradouro"
+        required
+        :rules="[(v) => !!v || 'Logradouro é obrigatório']"
+      />
     </v-col>
     <v-col cols="12" md="4">
-      <v-text-field v-model="localAddress.numero" label="Número" required />
+      <v-text-field
+        v-model="localAddress.numero"
+        label="Número"
+        required
+        :rules="[(v) => !!v || 'Número é obrigatório']"
+      />
     </v-col>
     <v-col cols="12" md="6">
-      <v-text-field v-model="localAddress.bairro" label="Bairro" required />
+      <v-text-field
+        v-model="localAddress.bairro"
+        label="Bairro"
+        required
+        :rules="[(v) => !!v || 'Bairro é obrigatório']"
+      />
     </v-col>
     <v-col cols="12" md="6">
       <v-text-field
@@ -124,6 +141,7 @@ export default defineComponent({
         maxlength="9"
         hint="Formato 00000-000"
         required
+        :rules="[(v) => !!v || 'CEP é obrigatório']"
         @blur="normalizeCep"
       />
     </v-col>

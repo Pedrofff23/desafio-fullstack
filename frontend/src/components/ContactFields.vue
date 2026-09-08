@@ -43,6 +43,7 @@ export default defineComponent({
         :model-value="modelValue.codigo_pais"
         label="Código do país"
         required
+        :rules="[(v) => !!v || 'Código do país é obrigatório']"
         @update:model-value="update('codigo_pais', $event)"
       />
     </v-col>
@@ -53,6 +54,7 @@ export default defineComponent({
         inputmode="numeric"
         maxlength="2"
         required
+        :rules="[(v) => !!v || 'DDD é obrigatório']"
         @update:model-value="update('ddd', $event)"
         @blur="normalizeDdd"
       />
@@ -66,6 +68,10 @@ export default defineComponent({
         hint="Ex.: 99999-9999 ou 4444-4444"
         persistent-hint
         required
+        :rules="[
+          (v) => !!v || 'Telefone é obrigatório',
+          (v) => !v || v.length >= 8 || 'Telefone deve ter pelo menos 8 dígitos',
+        ]"
         @update:model-value="onPhoneInput"
         @blur="normalizePhone"
       />

@@ -144,9 +144,14 @@ export default defineComponent({
           <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
           <v-form @submit.prevent="submit">
             <v-row>
-              <v-col cols="12" md="8"
-                ><v-text-field v-model.trim="form.nome_empresa" label="Nome da empresa" required
-              /></v-col>
+              <v-col cols="12" md="8">
+                <v-text-field
+                  v-model.trim="form.nome_empresa"
+                  label="Nome da empresa"
+                  required
+                  :rules="[(v) => !!v || 'Nome da empresa é obrigatório']"
+                />
+              </v-col>
               <v-col cols="12" md="4"
                 ><v-switch v-model="form.ativo" color="primary" label="Fornecedor ativo" inset
               /></v-col>

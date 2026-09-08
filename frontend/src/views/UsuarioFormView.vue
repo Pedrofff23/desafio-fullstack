@@ -157,10 +157,21 @@ export default defineComponent({
             ><div class="text-subtitle-1 font-weight-bold">Dados do usuário</div></v-col
           >
           <v-col cols="12" md="7">
-            <v-text-field v-model.trim="form.nome" label="Nome completo" required />
+            <v-text-field
+              v-model.trim="form.nome"
+              label="Nome completo"
+              required
+              :rules="[(v) => !!v || 'Nome completo é obrigatório']"
+            />
           </v-col>
           <v-col cols="12" md="5">
-            <v-text-field v-model.trim="form.email" type="email" label="E-mail" required />
+            <v-text-field
+              v-model.trim="form.email"
+              type="email"
+              label="E-mail"
+              required
+              :rules="[(v) => !!v || 'E-mail é obrigatório']"
+            />
           </v-col>
           <v-col cols="12" md="4">
             <v-text-field
@@ -169,6 +180,7 @@ export default defineComponent({
               :label="editing ? 'Nova senha (opcional)' : 'Senha'"
               :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
               :required="!editing"
+              :rules="!editing ? [(v) => !!v || 'Senha é obrigatória'] : []"
               @click:append-inner="showPassword = !showPassword"
             />
           </v-col>

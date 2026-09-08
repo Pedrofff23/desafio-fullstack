@@ -71,6 +71,7 @@ export default defineComponent({
                 prepend-inner-icon="mdi-email-outline"
                 autocomplete="email"
                 required
+                :rules="[(v) => !!v || 'E-mail é obrigatório']"
               />
               <v-text-field
                 v-model="senha"
@@ -80,6 +81,7 @@ export default defineComponent({
                 :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                 autocomplete="current-password"
                 required
+                :rules="[(v) => !!v || 'Senha é obrigatória']"
                 @click:append-inner="showPassword = !showPassword"
               />
               <v-btn

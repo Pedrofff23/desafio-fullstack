@@ -144,6 +144,7 @@ export default defineComponent({
               item-value="id"
               label="Produto com estoque"
               required
+              :rules="[(v) => !!v || 'Produto é obrigatório']"
             />
           </v-col>
           <v-col cols="12" md="6">
@@ -156,6 +157,7 @@ export default defineComponent({
               :loading="loadingEntries"
               :disabled="!productId"
               required
+              :rules="[(v) => !!v || 'Entrada de origem é obrigatória']"
             />
             <v-alert
               v-if="productId && !loadingEntries && entries.length === 0"
@@ -180,6 +182,7 @@ export default defineComponent({
               step="0.001"
               label="Quantidade"
               required
+              :rules="[(v) => !!v || 'Quantidade é obrigatória']"
             />
           </v-col>
           <v-col cols="12" md="3">
@@ -190,7 +193,12 @@ export default defineComponent({
             />
           </v-col>
           <v-col cols="12" md="3">
-            <v-text-field v-model.trim="form.tipo_saida" label="Tipo de saída" required />
+            <v-text-field
+              v-model.trim="form.tipo_saida"
+              label="Tipo de saída"
+              required
+              :rules="[(v) => !!v || 'Tipo de saída é obrigatório']"
+            />
           </v-col>
           <v-col cols="12" md="3">
             <v-text-field
@@ -201,6 +209,7 @@ export default defineComponent({
               prefix="R$"
               label="Preço de venda"
               required
+              :rules="[(v) => (v !== null && v !== '' && v !== undefined) || 'Preço de venda é obrigatório']"
             />
           </v-col>
         </v-row>
