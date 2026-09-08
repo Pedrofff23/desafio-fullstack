@@ -147,7 +147,7 @@ export default defineComponent({
       if (!window.confirm(`Deseja excluir o produto ${produto.nome}?`)) return
       this.error = ''
       try {
-        await produtosApi.excluir(produto.id)
+        await produtosApi.delete(produto.id)
         this.success = 'Produto excluído com sucesso.'
         await this.load()
       } catch (error) {

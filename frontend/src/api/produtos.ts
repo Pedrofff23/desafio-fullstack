@@ -45,7 +45,7 @@ export const produtosApi = {
     return data
   },
 
-  async excluir(id: number): Promise<void> {
+  async delete(id: number): Promise<void> {
     await http.delete(`/produtos/${id}`)
   },
 

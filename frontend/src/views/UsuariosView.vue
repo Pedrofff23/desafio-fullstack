@@ -70,7 +70,7 @@ export default defineComponent({
       this.error = ''
       this.success = ''
       try {
-        await usuariosApi.excluir(usuario.id)
+        await usuariosApi.delete(usuario.id)
         this.success = 'Usuário excluído com sucesso.'
         await this.load()
       } catch (error) {

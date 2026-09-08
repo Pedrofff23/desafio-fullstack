@@ -26,7 +26,7 @@ export const usuariosApi = {
     return data
   },
 
-  async excluir(id: number): Promise<void> {
+  async delete(id: number): Promise<void> {
     await http.delete(`/usuarios/${id}`)
   },
 }
