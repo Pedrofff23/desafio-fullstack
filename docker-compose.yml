@@ -23,11 +23,15 @@ services:
       dockerfile: Dockerfile
     container_name: estoque-backend
     restart: unless-stopped
+    entrypoint: ["/bin/bash", "/app/entrypoint.sh"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     env_file:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-estoque}:${POSTGRES_PASSWORD:-estoque123}@db:5432/${POSTGRES_DB:-gerenciamento_estoque}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
       AUTO_SEED: ${AUTO_SEED:-true}
+      AUTO_SEED_DEMO: ${AUTO_SEED_DEMO:-false}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -41,6 +45,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 30s
 
   frontend:
     build:

@@ -1,4 +1,4 @@
-.PHONY: help up build down restart logs ps db-shell db-check db-clean db-seed db-seed-geo db-seed-all backend-shell backend-test uv-sync uv-run frontend-install frontend-dev frontend-test frontend-build
+.PHONY: help up build down restart logs ps db-shell db-check db-clean db-seed db-seed-geo db-seed-demo db-seed-all backend-shell backend-test uv-sync uv-run frontend-install frontend-dev frontend-test frontend-build
 
 # Default target: show help
 help:
@@ -19,6 +19,7 @@ help:
 	@echo "  make db-clean       - Delete the database volume and all persisted data"
 	@echo "  make db-seed        - Seed reference data (units, categories, admin user)"
 	@echo "  make db-seed-geo    - Seed IBGE geo data (countries, states, cities)"
+	@echo "  make db-seed-demo   - Seed demo data (products, suppliers, inventory)"
 	@echo "  make db-seed-all    - Run all seeds (seed_geo + init_db)"
 	@echo ""
 	@echo "Backend (Docker / Local):"
@@ -77,6 +78,9 @@ db-seed:
 
 db-seed-geo:
 	docker compose exec backend bash scripts/seed_geo.sh
+
+db-seed-demo:
+	docker compose exec backend python -m scripts.seed_demo
 
 db-seed-all: db-seed-geo db-seed
 

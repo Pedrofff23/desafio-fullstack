@@ -17,6 +17,13 @@ DB_NAME="$(echo "$PSQL_URL" | sed -E 's|.*/([^/]+)$|\1|')"
 
 export PGPASSWORD="$DB_PASS"
 SQL_DIR="${SQL_REF_DIR:-/app/sql_reference}"
+if [ ! -d "$SQL_DIR" ]; then
+  if [ -d "sql_reference" ]; then
+    SQL_DIR="sql_reference"
+  elif [ -d "../sql_reference" ]; then
+    SQL_DIR="../sql_reference"
+  fi
+fi
 
 echo "=== Seed geográfico IBGE ==="
 echo "Host: $DB_HOST:$DB_PORT  DB: $DB_NAME  User: $DB_USER"

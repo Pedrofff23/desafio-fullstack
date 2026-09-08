@@ -247,7 +247,10 @@ export default defineComponent({
               v-model="form.preco"
               label="Preço atual"
               required
-              :rules="[(v) => (v !== null && v !== '' && v !== undefined) || 'Preço atual é obrigatório']"
+              :rules="[
+                (v: unknown) =>
+                  (v !== null && v !== '' && v !== undefined) || 'Preço atual é obrigatório',
+              ]"
             />
           </v-col>
           <v-col cols="12" md="4">
