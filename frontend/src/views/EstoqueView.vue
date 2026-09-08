@@ -45,6 +45,8 @@ export default defineComponent({
         { label: 'Próximos do vencimento', value: 'validade_proxima' },
         { label: 'Vencidos', value: 'vencido' },
       ] as Array<{ label: string; value: LotFilter }>,
+      lotPage: 1,
+      lotSize: 10,
       inspectDialog: false,
       inspectedProduct: null as Produto | null,
       inspectCatalog: null as CatalogoProduto | null,
@@ -61,10 +63,23 @@ export default defineComponent({
         (lot) => lot.quantidade_estoque > 0 && lot.status_validade === this.lotFilter,
       )
     },
+    lotTotal(): number {
+      return this.filteredLots.length
+    },
+    lotPages(): number {
+      return Math.ceil(this.lotTotal / this.lotSize) || 1
+    },
+    paginatedLots(): Lote[] {
+      const start = (this.lotPage - 1) * this.lotSize
+      return this.filteredLots.slice(start, start + this.lotSize)
+    },
   },
   watch: {
     page() {
       void this.load()
+    },
+    lotFilter() {
+      this.lotPage = 1
     },
   },
   mounted() {
@@ -103,6 +118,7 @@ export default defineComponent({
       this.selectedProduct = item
       this.lots = []
       this.lotFilter = 'todos'
+      this.lotPage = 1
       this.lotDialog = true
       await this.loadLots()
     },
@@ -343,7 +359,7 @@ export default defineComponent({
               </tr>
             </thead>
             <tbody>
-              <tr v-for="lot in filteredLots" :key="lot.id" :class="lotRowClass(lot)">
+              <tr v-for="lot in paginatedLots" :key="lot.id" :class="lotRowClass(lot)">
                 <td>
                   <div class="font-weight-medium">{{ lot.numero_lote }}</div>
                   <div class="text-caption text-medium-emphasis">ID {{ lot.id }}</div>
@@ -375,6 +391,13 @@ export default defineComponent({
               </tr>
             </tbody>
           </v-table>
+          <PaginationControls
+            v-if="filteredLots.length > 0"
+            v-model="lotPage"
+            :pages="lotPages"
+            :total="lotTotal"
+            class="pa-0 mt-4"
+          />
         </v-card-text>
         <v-card-actions class="pa-5 pt-0">
           <v-spacer />

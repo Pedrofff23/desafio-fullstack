@@ -69,6 +69,8 @@ export default defineComponent({
       lotForm: emptyLote(),
       lotLoading: false,
       editingLotId: null as number | null,
+      lotPage: 1,
+      lotSize: 10,
       inspectDialog: false,
       inspectedProduct: null as Produto | null,
       inspectCatalog: null as CatalogoProduto | null,
@@ -85,10 +87,23 @@ export default defineComponent({
         (lot) => lot.quantidade_estoque > 0 && lot.status_validade === this.lotFilter,
       )
     },
+    lotTotal(): number {
+      return this.filteredLots.length
+    },
+    lotPages(): number {
+      return Math.ceil(this.lotTotal / this.lotSize) || 1
+    },
+    paginatedLots(): Lote[] {
+      const start = (this.lotPage - 1) * this.lotSize
+      return this.filteredLots.slice(start, start + this.lotSize)
+    },
   },
   watch: {
     page() {
       void this.load()
+    },
+    lotFilter() {
+      this.lotPage = 1
     },
   },
   mounted() {
@@ -165,6 +180,7 @@ export default defineComponent({
       this.selectedProduct = produto
       this.lotForm = emptyLote()
       this.lotFilter = 'todos'
+      this.lotPage = 1
       this.lotDialog = true
       this.lotLoading = true
       try {
@@ -204,6 +220,9 @@ export default defineComponent({
       try {
         await produtosApi.deleteLote(this.selectedProduct.id, lot.id)
         this.lots = await produtosApi.listarLotes(this.selectedProduct.id)
+        if (this.lotPage > this.lotPages) {
+          this.lotPage = Math.max(this.lotPages, 1)
+        }
         this.success = 'Lote excluído com sucesso.'
         await this.load()
       } catch (error) {
@@ -442,7 +461,7 @@ export default defineComponent({
               </tr>
             </thead>
             <tbody>
-              <tr v-for="lot in filteredLots" :key="lot.id" :class="lotRowClass(lot)">
+              <tr v-for="lot in paginatedLots" :key="lot.id" :class="lotRowClass(lot)">
                 <td>{{ lot.numero_lote }}</td>
                 <td>{{ formatDate(lot.data_producao) }}</td>
                 <td>{{ formatDate(lot.data_validade) }}</td>
@@ -474,6 +493,13 @@ export default defineComponent({
               </tr>
             </tbody>
           </v-table>
+          <PaginationControls
+            v-if="filteredLots.length > 0"
+            v-model="lotPage"
+            :pages="lotPages"
+            :total="lotTotal"
+            class="pa-0 mb-5"
+          />
           <div class="text-subtitle-1 font-weight-bold mb-3">{{ editingLotId ? 'Editar lote' : 'Cadastrar lote' }}</div>
           <v-row>
             <v-col cols="12" md="5">
