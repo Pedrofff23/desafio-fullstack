@@ -157,6 +157,8 @@ export interface LoteInput {
   ativo: boolean
 }
 
+export type LoteUpdate = Partial<LoteInput>
+
 export interface Lote extends LoteInput {
   id: number
   produto_id: number
@@ -241,6 +243,8 @@ export interface FornecedorCreate {
   contato: ContatoInput
   endereco: EnderecoInput
 }
+
+export type FornecedorUpdate = Partial<FornecedorCreate>
 
 export interface RegistroEntradaCreate {
   lote_id: number | null

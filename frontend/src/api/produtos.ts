@@ -3,6 +3,7 @@ import type {
   CatalogoProduto,
   Lote,
   LoteInput,
+  LoteUpdate,
   PaginatedResponse,
   Produto,
   ProdutoCreate,
@@ -57,5 +58,19 @@ export const produtosApi = {
   async createLote(produtoId: number, payload: LoteInput): Promise<Lote> {
     const { data } = await http.post<Lote>(`/produtos/${produtoId}/lotes`, payload)
     return data
+  },
+
+  async getLote(produtoId: number, loteId: number): Promise<Lote> {
+    const { data } = await http.get<Lote>(`/produtos/${produtoId}/lotes/${loteId}`)
+    return data
+  },
+
+  async updateLote(produtoId: number, loteId: number, payload: LoteUpdate): Promise<Lote> {
+    const { data } = await http.put<Lote>(`/produtos/${produtoId}/lotes/${loteId}`, payload)
+    return data
+  },
+
+  async deleteLote(produtoId: number, loteId: number): Promise<void> {
+    await http.delete(`/produtos/${produtoId}/lotes/${loteId}`)
   },
 }

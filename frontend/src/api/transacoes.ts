@@ -4,6 +4,7 @@ import type {
   EstoqueProduto,
   Fornecedor,
   FornecedorCreate,
+  FornecedorUpdate,
   Movimento,
   PaginatedResponse,
   RegistroEntradaCreate,
@@ -30,6 +31,20 @@ export const transacoesApi = {
   async createFornecedor(payload: FornecedorCreate): Promise<Fornecedor> {
     const { data } = await http.post<Fornecedor>('/transacoes/fornecedores', payload)
     return data
+  },
+
+  async getFornecedor(id: number): Promise<Fornecedor> {
+    const { data } = await http.get<Fornecedor>(`/transacoes/fornecedores/${id}`)
+    return data
+  },
+
+  async updateFornecedor(id: number, payload: FornecedorUpdate): Promise<Fornecedor> {
+    const { data } = await http.put<Fornecedor>(`/transacoes/fornecedores/${id}`, payload)
+    return data
+  },
+
+  async deleteFornecedor(id: number): Promise<void> {
+    await http.delete(`/transacoes/fornecedores/${id}`)
   },
 
   async registrarEntrada(payload: RegistroEntradaCreate): Promise<void> {

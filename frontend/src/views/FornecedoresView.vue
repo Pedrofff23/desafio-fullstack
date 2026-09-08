@@ -9,7 +9,7 @@ import EmptyTableRow from '@/components/EmptyTableRow.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import type { Fornecedor, FornecedorCreate } from '@/types/api'
 import { getErrorMessage } from '@/utils/errors'
-import { formatContact } from '@/utils/formatters'
+import { formatContact, formatDateTime } from '@/utils/formatters'
 import {
   createAddressInput,
   createContactInput,
@@ -34,6 +34,9 @@ export default defineComponent({
       items: [] as Fornecedor[],
       form: emptyForm(),
       dialog: false,
+      inspectDialog: false,
+      selected: null as Fornecedor | null,
+      editingId: null as number | null,
       loading: false,
       saving: false,
       error: '',
@@ -45,6 +48,7 @@ export default defineComponent({
   },
   methods: {
     formatContact,
+    formatDateTime,
     async load() {
       this.loading = true
       try {
@@ -57,8 +61,39 @@ export default defineComponent({
     },
     openForm() {
       this.form = emptyForm()
+      this.editingId = null
       this.error = ''
       this.dialog = true
+    },
+    inspect(supplier: Fornecedor) {
+      this.selected = supplier
+      this.inspectDialog = true
+    },
+    edit(supplier: Fornecedor) {
+      this.editingId = supplier.id
+      this.form = {
+        nome_empresa: supplier.nome_empresa,
+        ativo: supplier.ativo,
+        contato: createContactInput(supplier.contato),
+        endereco: createAddressInput({
+          ...supplier.endereco,
+          estado_id: supplier.endereco.cidade.estado_id,
+          cidade_id: supplier.endereco.cidade.id,
+        }),
+      }
+      this.error = ''
+      this.dialog = true
+    },
+    async remove(supplier: Fornecedor) {
+      if (!window.confirm(`Deseja excluir o fornecedor ${supplier.nome_empresa}?`)) return
+      this.error = ''
+      try {
+        await transacoesApi.deleteFornecedor(supplier.id)
+        this.success = 'Fornecedor excluído com sucesso.'
+        await this.load()
+      } catch (error) {
+        this.error = getErrorMessage(error)
+      }
     },
     async submit() {
       if (
@@ -74,13 +109,17 @@ export default defineComponent({
       this.saving = true
       this.error = ''
       try {
-        await transacoesApi.createFornecedor({
+        const payload = {
           ...this.form,
           contato: normalizeContactInput(this.form.contato),
           endereco: normalizeAddressInput(this.form.endereco),
-        })
+        }
+        if (this.editingId) await transacoesApi.updateFornecedor(this.editingId, payload)
+        else await transacoesApi.createFornecedor(payload)
         this.dialog = false
-        this.success = 'Fornecedor cadastrado com sucesso.'
+        this.success = this.editingId
+          ? 'Fornecedor atualizado com sucesso.'
+          : 'Fornecedor cadastrado com sucesso.'
         await this.load()
       } catch (error) {
         this.error = getErrorMessage(error)
@@ -119,6 +158,7 @@ export default defineComponent({
             <th>Contato</th>
             <th>Cidade</th>
             <th>Situação</th>
+            <th class="text-right">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -127,10 +167,15 @@ export default defineComponent({
             <td>{{ formatContact(supplier.contato) }}</td>
             <td>{{ supplier.endereco.cidade.nome }}</td>
             <td><ActiveStatusChip :active="supplier.ativo" /></td>
+            <td class="text-right text-no-wrap">
+              <v-btn icon="mdi-information-outline" size="small" variant="text" title="Inspecionar fornecedor" @click="inspect(supplier)" />
+              <v-btn icon="mdi-pencil-outline" size="small" variant="text" title="Editar fornecedor" @click="edit(supplier)" />
+              <v-btn icon="mdi-delete-outline" color="error" size="small" variant="text" title="Excluir fornecedor" @click="remove(supplier)" />
+            </td>
           </tr>
           <EmptyTableRow
             v-if="!loading && items.length === 0"
-            :columns="4"
+            :columns="5"
             message="Nenhum fornecedor cadastrado."
           />
         </tbody>
@@ -139,7 +184,7 @@ export default defineComponent({
 
     <v-dialog v-model="dialog" max-width="900" persistent>
       <v-card>
-        <v-card-title class="pa-5">Novo fornecedor</v-card-title>
+        <v-card-title class="pa-5">{{ editingId ? 'Editar fornecedor' : 'Novo fornecedor' }}</v-card-title>
         <v-card-text>
           <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
           <v-form @submit.prevent="submit">
@@ -164,9 +209,26 @@ export default defineComponent({
         <v-card-actions class="pa-5 pt-0"
           ><v-spacer /><v-btn variant="text" @click="dialog = false">Cancelar</v-btn
           ><v-btn color="primary" :loading="saving" @click="submit"
-            >Cadastrar</v-btn
+            >{{ editingId ? 'Salvar alterações' : 'Cadastrar' }}</v-btn
           ></v-card-actions
         >
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="inspectDialog" max-width="700">
+      <v-card v-if="selected">
+        <v-card-title class="d-flex align-center pa-5">Fornecedor<v-spacer /><v-btn icon="mdi-close" variant="text" @click="inspectDialog = false" /></v-card-title>
+        <v-card-text class="px-5">
+          <v-row>
+            <v-col cols="12" md="8"><div class="text-caption">Empresa</div><strong>{{ selected.nome_empresa }}</strong></v-col>
+            <v-col cols="12" md="4"><ActiveStatusChip :active="selected.ativo" /></v-col>
+            <v-col cols="12" md="6"><div class="text-caption">Contato</div>{{ formatContact(selected.contato) }}</v-col>
+            <v-col cols="12" md="6"><div class="text-caption">Cadastro</div>{{ formatDateTime(selected.data_cadastro) }}</v-col>
+            <v-col cols="12"><v-divider /></v-col>
+            <v-col cols="12"><div class="text-caption">Endereço</div>{{ selected.endereco.logradouro }}, {{ selected.endereco.numero }}<template v-if="selected.endereco.complemento"> · {{ selected.endereco.complemento }}</template><br />{{ selected.endereco.bairro }} · CEP {{ selected.endereco.cep }}<br />{{ selected.endereco.cidade.nome }}</v-col>
+          </v-row>
+        </v-card-text>
+        <v-card-actions class="pa-5"><v-spacer /><v-btn variant="text" @click="inspectDialog = false">Fechar</v-btn></v-card-actions>
       </v-card>
     </v-dialog>
   </div>

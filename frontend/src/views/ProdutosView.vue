@@ -7,8 +7,9 @@ import EmptyTableRow from '@/components/EmptyTableRow.vue'
 import LotExpirationChip from '@/components/LotExpirationChip.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
+import ProductInspectionDialog from '@/components/ProductInspectionDialog.vue'
 import ProductStatusChip from '@/components/ProductStatusChip.vue'
-import type { Lote, LoteInput, LoteValidadeStatus, Produto, ProdutoStatus } from '@/types/api'
+import type { CatalogoProduto, Lote, LoteInput, LoteValidadeStatus, Produto, ProdutoStatus } from '@/types/api'
 import { getErrorMessage } from '@/utils/errors'
 import { formatCurrency, formatDate, formatQuantity } from '@/utils/formatters'
 
@@ -31,6 +32,7 @@ export default defineComponent({
     LotExpirationChip,
     PageHeader,
     PaginationControls,
+    ProductInspectionDialog,
     ProductStatusChip,
   },
   data() {
@@ -66,6 +68,11 @@ export default defineComponent({
       ] as Array<{ label: string; value: LotFilter }>,
       lotForm: emptyLote(),
       lotLoading: false,
+      editingLotId: null as number | null,
+      inspectDialog: false,
+      inspectedProduct: null as Produto | null,
+      inspectCatalog: null as CatalogoProduto | null,
+      inspectLoading: false,
     }
   },
   computed: {
@@ -168,6 +175,43 @@ export default defineComponent({
         this.lotLoading = false
       }
     },
+    async inspectProduct(produto: Produto) {
+      this.inspectDialog = true
+      this.inspectLoading = true
+      try {
+        const [detail, catalog] = await Promise.all([produtosApi.get(produto.id), produtosApi.catalogo()])
+        this.inspectedProduct = detail
+        this.inspectCatalog = catalog
+      } catch (error) {
+        this.error = getErrorMessage(error)
+        this.inspectDialog = false
+      } finally {
+        this.inspectLoading = false
+      }
+    },
+    editLot(lot: Lote) {
+      this.editingLotId = lot.id
+      this.lotForm = { numero_lote: lot.numero_lote, data_producao: lot.data_producao, data_validade: lot.data_validade, ativo: lot.ativo }
+    },
+    cancelLotEdit() {
+      this.editingLotId = null
+      this.lotForm = emptyLote()
+    },
+    async removeLot(lot: Lote) {
+      if (!this.selectedProduct || !window.confirm(`Deseja excluir o lote ${lot.numero_lote}?`)) return
+      this.lotLoading = true
+      this.error = ''
+      try {
+        await produtosApi.deleteLote(this.selectedProduct.id, lot.id)
+        this.lots = await produtosApi.listarLotes(this.selectedProduct.id)
+        this.success = 'Lote excluído com sucesso.'
+        await this.load()
+      } catch (error) {
+        this.error = getErrorMessage(error)
+      } finally {
+        this.lotLoading = false
+      }
+    },
     async createLot() {
       if (!this.selectedProduct || !this.lotForm.numero_lote || !this.lotForm.data_producao) {
         this.error = 'Informe o número e a data de produção do lote.'
@@ -180,13 +224,15 @@ export default defineComponent({
       this.lotLoading = true
       this.error = ''
       try {
-        await produtosApi.createLote(this.selectedProduct.id, this.lotForm)
+        if (this.editingLotId) await produtosApi.updateLote(this.selectedProduct.id, this.editingLotId, this.lotForm)
+        else await produtosApi.createLote(this.selectedProduct.id, this.lotForm)
         this.lots = await produtosApi.listarLotes(this.selectedProduct.id)
         if (this.selectedProduct) {
           this.selectedProduct.total_lotes = this.lots.length
         }
         this.lotForm = emptyLote()
-        this.success = 'Lote cadastrado com sucesso.'
+        this.success = this.editingLotId ? 'Lote atualizado com sucesso.' : 'Lote cadastrado com sucesso.'
+        this.editingLotId = null
         await this.load()
       } catch (error) {
         this.error = getErrorMessage(error)
@@ -316,6 +362,13 @@ export default defineComponent({
             <td>
               <div class="table-actions">
                 <v-btn
+                  icon="mdi-information-outline"
+                  size="small"
+                  variant="text"
+                  title="Inspecionar produto"
+                  @click="inspectProduct(produto)"
+                />
+                <v-btn
                   icon="mdi-package-variant-closed"
                   size="small"
                   variant="text"
@@ -385,6 +438,7 @@ export default defineComponent({
                 <th>Saldo</th>
                 <th>Localização</th>
                 <th>Cadastro</th>
+                <th class="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -408,15 +462,19 @@ export default defineComponent({
                 </td>
                 <td class="text-caption">{{ lotLocations(lot) }}</td>
                 <td><ActiveStatusChip :active="lot.ativo" /></td>
+                <td class="text-right text-no-wrap">
+                  <v-btn icon="mdi-pencil-outline" size="small" variant="text" title="Editar lote" @click="editLot(lot)" />
+                  <v-btn icon="mdi-delete-outline" color="error" size="small" variant="text" title="Excluir lote" @click="removeLot(lot)" />
+                </td>
               </tr>
               <tr v-if="filteredLots.length === 0">
-                <td colspan="8" class="text-center text-medium-emphasis py-4">
+                <td colspan="9" class="text-center text-medium-emphasis py-4">
                   Nenhum lote encontrado para este filtro.
                 </td>
               </tr>
             </tbody>
           </v-table>
-          <div class="text-subtitle-1 font-weight-bold mb-3">Cadastrar lote</div>
+          <div class="text-subtitle-1 font-weight-bold mb-3">{{ editingLotId ? 'Editar lote' : 'Cadastrar lote' }}</div>
           <v-row>
             <v-col cols="12" md="5">
               <v-text-field
@@ -448,11 +506,18 @@ export default defineComponent({
         </v-card-text>
         <v-card-actions class="pa-5 pt-0">
           <v-spacer />
+          <v-btn v-if="editingLotId" variant="text" @click="cancelLotEdit">Cancelar edição</v-btn>
           <v-btn variant="text" @click="lotDialog = false">Fechar</v-btn>
-          <v-btn color="primary" :loading="lotLoading" @click="createLot">Cadastrar lote</v-btn>
+          <v-btn color="primary" :loading="lotLoading" @click="createLot">{{ editingLotId ? 'Salvar lote' : 'Cadastrar lote' }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <ProductInspectionDialog
+      v-model="inspectDialog"
+      :product="inspectedProduct"
+      :catalog="inspectCatalog"
+      :loading="inspectLoading"
+    />
   </div>
 </template>
 

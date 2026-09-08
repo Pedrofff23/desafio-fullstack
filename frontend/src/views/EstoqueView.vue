@@ -8,7 +8,8 @@ import EmptyTableRow from '@/components/EmptyTableRow.vue'
 import LotExpirationChip from '@/components/LotExpirationChip.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
-import type { EstoqueProduto, Lote, LoteValidadeStatus } from '@/types/api'
+import ProductInspectionDialog from '@/components/ProductInspectionDialog.vue'
+import type { CatalogoProduto, EstoqueProduto, Lote, LoteValidadeStatus, Produto } from '@/types/api'
 import { getErrorMessage } from '@/utils/errors'
 import { formatDate, formatQuantity } from '@/utils/formatters'
 
@@ -22,6 +23,7 @@ export default defineComponent({
     LotExpirationChip,
     PageHeader,
     PaginationControls,
+    ProductInspectionDialog,
   },
   data() {
     return {
@@ -43,6 +45,10 @@ export default defineComponent({
         { label: 'Próximos do vencimento', value: 'validade_proxima' },
         { label: 'Vencidos', value: 'vencido' },
       ] as Array<{ label: string; value: LotFilter }>,
+      inspectDialog: false,
+      inspectedProduct: null as Produto | null,
+      inspectCatalog: null as CatalogoProduto | null,
+      inspectLoading: false,
     }
   },
   computed: {
@@ -99,6 +105,23 @@ export default defineComponent({
       this.lotFilter = 'todos'
       this.lotDialog = true
       await this.loadLots()
+    },
+    async inspectProduct(item: EstoqueProduto) {
+      this.inspectDialog = true
+      this.inspectLoading = true
+      try {
+        const [detail, catalog] = await Promise.all([
+          produtosApi.get(item.produto_id),
+          produtosApi.catalogo(),
+        ])
+        this.inspectedProduct = detail
+        this.inspectCatalog = catalog
+      } catch (error) {
+        this.error = getErrorMessage(error)
+        this.inspectDialog = false
+      } finally {
+        this.inspectLoading = false
+      }
     },
     async loadLots() {
       if (!this.selectedProduct) return
@@ -237,6 +260,13 @@ export default defineComponent({
             </td>
             <td class="text-right">
               <v-btn
+                icon="mdi-information-outline"
+                size="small"
+                variant="text"
+                title="Inspecionar produto"
+                @click="inspectProduct(item)"
+              />
+              <v-btn
                 prepend-icon="mdi-package-variant-closed"
                 size="small"
                 variant="tonal"
@@ -352,6 +382,12 @@ export default defineComponent({
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <ProductInspectionDialog
+      v-model="inspectDialog"
+      :product="inspectedProduct"
+      :catalog="inspectCatalog"
+      :loading="inspectLoading"
+    />
   </div>
 </template>
 
