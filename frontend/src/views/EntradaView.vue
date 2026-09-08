@@ -77,8 +77,15 @@ export default defineComponent({
     productId(value: number | null) {
       this.form.lote_id = null
       if (value) {
+        const product = this.products.find((p) => p.id === value)
+        if (product) {
+          this.form.preco_custo = product.preco
+        }
         void this.loadLots(value)
-      } else this.lots = []
+      } else {
+        this.lots = []
+        this.form.preco_custo = 0
+      }
     },
   },
   async mounted() {
@@ -324,10 +331,10 @@ export default defineComponent({
           /></v-col>
         </v-row>
         <div class="form-actions">
-          <v-btn variant="text" to="/estoque">Cancelar</v-btn
-          ><v-btn color="primary" prepend-icon="mdi-package-down" type="submit" :loading="saving"
-            >Registrar entrada</v-btn
-          >
+          <v-btn variant="text" to="/estoque">Cancelar</v-btn>
+          <v-btn color="primary" prepend-icon="mdi-package-down" type="submit" :loading="saving">
+            Registrar entrada
+          </v-btn>
         </div>
       </v-form>
     </v-card>

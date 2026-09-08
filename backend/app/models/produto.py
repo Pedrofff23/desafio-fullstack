@@ -2,6 +2,7 @@
 Ingrediente, Corredor, Seccao, Prateleira, LocalizacaoEstoque e Produto."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -23,6 +24,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.lote import Lote
 
 
 class UnidadeMedida(Base):

@@ -1,6 +1,7 @@
 """Model de lote de produto."""
 
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -18,6 +19,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 
+if TYPE_CHECKING:
+    from app.models.produto import Produto
 
 class Lote(Base):
     __tablename__ = "lotes"
