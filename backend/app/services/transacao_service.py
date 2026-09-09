@@ -136,9 +136,11 @@ class TransacaoService:
         return [EstoqueEntradaOut.model_validate(linha) for linha in linhas]
 
     async def get_current_stock(
-        self, page: int = 1, size: int = 20
+        self, page: int = 1, size: int = 20, nome: str | None = None
     ) -> PaginatedResponse[dict]:
-        linhas, total = await self.repo.get_current_stock_by_product(page=page, size=size)
+        linhas, total = await self.repo.get_current_stock_by_product(
+            page=page, size=size, nome=nome
+        )
         return PaginatedResponse.build(linhas, total, page, size)
 
     # ------------------------------------------------------------------

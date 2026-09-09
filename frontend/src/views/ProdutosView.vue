@@ -9,6 +9,7 @@ import PageHeader from '@/components/PageHeader.vue';
 import PaginationControls from '@/components/PaginationControls.vue';
 import ProductInspectionDialog from '@/components/ProductInspectionDialog.vue';
 import ProductStatusChip from '@/components/ProductStatusChip.vue';
+import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { CatalogoProduto, Lote, LoteInput, LoteValidadeStatus, Produto, ProdutoStatus } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDate, formatQuantity } from '@/utils/formatters';
@@ -33,7 +34,8 @@ export default defineComponent({
     PageHeader,
     PaginationControls,
     ProductInspectionDialog,
-    ProductStatusChip
+    ProductStatusChip,
+    SearchFilterCard
   },
   data() {
     return {
@@ -279,28 +281,25 @@ export default defineComponent({
       {{ success }}
     </v-alert>
 
-    <v-card class="data-card pa-4 mb-4">
-      <v-form @submit.prevent="search">
-        <v-row align="center">
-          <v-col cols="12" md="4">
-            <v-text-field v-model.trim="filters.nome" label="Nome do produto" hide-details clearable />
-          </v-col>
-          <v-col cols="12" md="3">
-            <v-select v-model="filters.status" :items="statusOptions" label="Status" hide-details clearable />
-          </v-col>
-          <v-col cols="6" md="2">
-            <v-text-field v-model.number="filters.preco_min" type="number" min="0" step="0.01" label="Preço mín." hide-details />
-          </v-col>
-          <v-col cols="6" md="2">
-            <v-text-field v-model.number="filters.preco_max" type="number" min="0" step="0.01" label="Preço máx." hide-details />
-          </v-col>
-          <v-col cols="12" md="1" class="d-flex ga-1">
-            <v-btn icon="mdi-magnify" color="#560894" type="submit" title="Pesquisar" />
-            <v-btn icon="mdi-filter-off-outline" variant="text" title="Limpar filtros" @click="clearFilters" />
-          </v-col>
-        </v-row>
-      </v-form>
-    </v-card>
+    <SearchFilterCard
+      v-model="filters.nome"
+      label="Nome do produto"
+      placeholder="Digite o nome do produto..."
+      :loading="loading"
+      :md="4"
+      @search="search"
+      @clear="clearFilters"
+    >
+      <v-col cols="12" md="3">
+        <v-select v-model="filters.status" :items="statusOptions" label="Status" hide-details clearable />
+      </v-col>
+      <v-col cols="6" md="2">
+        <v-text-field v-model.number="filters.preco_min" type="number" min="0" step="0.01" label="Preço mín." hide-details />
+      </v-col>
+      <v-col cols="6" md="2">
+        <v-text-field v-model.number="filters.preco_max" type="number" min="0" step="0.01" label="Preço máx." hide-details />
+      </v-col>
+    </SearchFilterCard>
 
     <v-card class="data-card">
       <v-progress-linear v-if="loading" color="primary" indeterminate />

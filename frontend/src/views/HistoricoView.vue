@@ -8,13 +8,14 @@ import { usuariosApi } from '@/api/usuarios';
 import EmptyTableRow from '@/components/EmptyTableRow.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import PaginationControls from '@/components/PaginationControls.vue';
+import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Movimento, Produto, Usuario } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDateTime, formatQuantity } from '@/utils/formatters';
 
 export default defineComponent({
   name: 'HistoricoView',
-  components: { EmptyTableRow, PageHeader, PaginationControls },
+  components: { EmptyTableRow, PageHeader, PaginationControls, SearchFilterCard },
   data() {
     return {
       items: [] as Movimento[],
@@ -108,56 +109,56 @@ export default defineComponent({
     <PageHeader title="Histórico de movimentações" subtitle="Auditoria de entradas e saídas, sem alteração ou exclusão." />
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
-    <v-card class="data-card pa-4 mb-4">
-      <v-form @submit.prevent="search">
-        <v-row>
-          <v-col cols="12" md="4">
-            <v-autocomplete
-              v-model="filters.produto_id"
-              :items="products"
-              item-title="nome"
-              item-value="id"
-              label="Produto"
-              clearable
-              hide-details
-            />
-          </v-col>
-          <v-col cols="6" md="2">
-            <v-select
-              v-model="filters.tipo"
-              :items="[
-                { title: 'Entrada', value: 'entrada' },
-                { title: 'Saída', value: 'saida' }
-              ]"
-              label="Movimento"
-              clearable
-              hide-details
-            />
-          </v-col>
-          <v-col cols="6" md="2">
-            <v-text-field
-              v-model.number="filters.quantidade"
-              type="number"
-              min="0.001"
-              step="0.001"
-              label="Quantidade"
-              hide-details
-            />
-          </v-col>
-          <v-col cols="12" md="4">
-            <v-autocomplete v-model="filters.funcionario_id" :items="userOptions" label="Responsável" clearable hide-details />
-          </v-col>
-          <v-col cols="6" md="3">
-            <v-text-field v-model="filters.data_inicio" type="date" label="Data inicial" hide-details />
-          </v-col>
-          <v-col cols="6" md="3"><v-text-field v-model="filters.data_fim" type="date" label="Data final" hide-details /></v-col>
-          <v-col cols="12" md="6" class="d-flex justify-end ga-2">
-            <v-btn variant="text" @click="clearFilters">Limpar</v-btn>
-            <v-btn color="primary" prepend-icon="mdi-magnify" type="submit">Filtrar</v-btn>
-          </v-col>
-        </v-row>
-      </v-form>
-    </v-card>
+    <SearchFilterCard
+      grid
+      hide-search-input
+      :loading="loading"
+      @search="search"
+      @clear="clearFilters"
+    >
+      <v-col cols="12" md="4">
+        <v-autocomplete
+          v-model="filters.produto_id"
+          :items="products"
+          item-title="nome"
+          item-value="id"
+          label="Produto"
+          clearable
+          hide-details
+        />
+      </v-col>
+      <v-col cols="6" md="2">
+        <v-select
+          v-model="filters.tipo"
+          :items="[
+            { title: 'Entrada', value: 'entrada' },
+            { title: 'Saída', value: 'saida' }
+          ]"
+          label="Movimento"
+          clearable
+          hide-details
+        />
+      </v-col>
+      <v-col cols="6" md="2">
+        <v-text-field
+          v-model.number="filters.quantidade"
+          type="number"
+          min="0.001"
+          step="0.001"
+          label="Quantidade"
+          hide-details
+        />
+      </v-col>
+      <v-col cols="12" md="4">
+        <v-autocomplete v-model="filters.funcionario_id" :items="userOptions" label="Responsável" clearable hide-details />
+      </v-col>
+      <v-col cols="6" md="3">
+        <v-text-field v-model="filters.data_inicio" type="date" label="Data inicial" hide-details />
+      </v-col>
+      <v-col cols="6" md="3">
+        <v-text-field v-model="filters.data_fim" type="date" label="Data final" hide-details />
+      </v-col>
+    </SearchFilterCard>
 
     <v-card class="data-card">
       <v-progress-linear v-if="loading" color="primary" indeterminate />

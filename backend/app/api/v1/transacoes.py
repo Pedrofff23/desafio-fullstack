@@ -109,12 +109,13 @@ async def list_available_entries(
 async def get_current_stock(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    nome: str | None = Query(None, description="Filtrar por nome do produto"),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> PaginatedResponse[EstoqueProdutoOut]:
     return cast(
         PaginatedResponse[EstoqueProdutoOut],
-        await TransacaoService(db).get_current_stock(page=page, size=size),
+        await TransacaoService(db).get_current_stock(page=page, size=size, nome=nome),
     )
 
 

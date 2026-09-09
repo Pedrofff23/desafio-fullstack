@@ -9,6 +9,7 @@ import LotExpirationChip from '@/components/LotExpirationChip.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import PaginationControls from '@/components/PaginationControls.vue';
 import ProductInspectionDialog from '@/components/ProductInspectionDialog.vue';
+import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { CatalogoProduto, EstoqueProduto, Lote, LoteValidadeStatus, Produto } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatDate, formatQuantity } from '@/utils/formatters';
@@ -23,11 +24,13 @@ export default defineComponent({
     LotExpirationChip,
     PageHeader,
     PaginationControls,
-    ProductInspectionDialog
+    ProductInspectionDialog,
+    SearchFilterCard
   },
   data() {
     return {
       items: [] as EstoqueProduto[],
+      searchQuery: '',
       page: 1,
       size: 20,
       pages: 0,
@@ -78,6 +81,9 @@ export default defineComponent({
     },
     lotFilter() {
       this.lotPage = 1;
+    },
+    searchQuery() {
+      this.page = 1;
     }
   },
   mounted() {
@@ -150,7 +156,7 @@ export default defineComponent({
       this.loading = true;
       this.error = '';
       try {
-        const response = await transacoesApi.estoque(this.page, this.size);
+        const response = await transacoesApi.estoque(this.page, this.size, this.searchQuery || undefined);
         this.items = response.items;
         this.pages = response.pages;
         this.total = response.total;
@@ -159,6 +165,14 @@ export default defineComponent({
       } finally {
         this.loading = false;
       }
+    },
+    search() {
+      if (this.page === 1) void this.load();
+      else this.page = 1;
+    },
+    clearFilters() {
+      this.searchQuery = '';
+      this.search();
     }
   }
 });
@@ -173,6 +187,15 @@ export default defineComponent({
     </PageHeader>
 
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+
+    <SearchFilterCard
+      v-model="searchQuery"
+      label="Pesquisar produto no estoque"
+      placeholder="Digite o nome do produto..."
+      :loading="loading"
+      @search="search"
+      @clear="clearFilters"
+    />
 
     <v-card class="data-card">
       <v-progress-linear v-if="loading" color="primary" indeterminate />
@@ -267,7 +290,11 @@ export default defineComponent({
               </v-btn>
             </td>
           </tr>
-          <EmptyTableRow v-if="!loading && items.length === 0" :columns="5" message="Nenhum produto cadastrado." />
+          <EmptyTableRow
+            v-if="!loading && items.length === 0"
+            :columns="5"
+            :message="searchQuery ? 'Nenhum produto encontrado no estoque para a pesquisa.' : 'Nenhum produto cadastrado.'"
+          />
         </tbody>
       </v-table>
       <v-divider />

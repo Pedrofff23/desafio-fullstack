@@ -62,10 +62,10 @@ export const transacoesApi = {
     await http.post('/transacoes/saida', payload);
   },
 
-  async estoque(page: number, size: number): Promise<PaginatedResponse<EstoqueProduto>> {
-    const { data } = await http.get<PaginatedResponse<EstoqueProduto>>('/transacoes/estoque', {
-      params: { page, size }
-    });
+  async estoque(page: number, size: number, nome?: string): Promise<PaginatedResponse<EstoqueProduto>> {
+    const params: Record<string, any> = { page, size };
+    if (nome) params.nome = nome;
+    const { data } = await http.get<PaginatedResponse<EstoqueProduto>>('/transacoes/estoque', { params });
     return data;
   },
 

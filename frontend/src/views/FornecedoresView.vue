@@ -8,6 +8,7 @@ import ContactFields from '@/components/ContactFields.vue';
 import EmptyTableRow from '@/components/EmptyTableRow.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import PaginationControls from '@/components/PaginationControls.vue';
+import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Fornecedor, FornecedorCreate } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatContact, formatDateTime } from '@/utils/formatters';
@@ -30,11 +31,13 @@ export default defineComponent({
     ContactFields,
     EmptyTableRow,
     PageHeader,
-    PaginationControls
+    PaginationControls,
+    SearchFilterCard
   },
   data() {
     return {
       items: [] as Fornecedor[],
+      searchQuery: '',
       page: 1,
       size: 20,
       form: emptyForm(),
@@ -49,15 +52,30 @@ export default defineComponent({
     };
   },
   computed: {
+    filteredItems(): Fornecedor[] {
+      if (!this.searchQuery.trim()) return this.items;
+      const query = this.searchQuery.toLowerCase().trim();
+      return this.items.filter((item) => {
+        const empresa = item.nome_empresa.toLowerCase();
+        const cidade = item.endereco?.cidade?.nome?.toLowerCase() || '';
+        const tel = `${item.contato?.ddd || ''}${item.contato?.numero || ''}`;
+        return empresa.includes(query) || cidade.includes(query) || tel.includes(query);
+      });
+    },
     total(): number {
-      return this.items.length;
+      return this.filteredItems.length;
     },
     pages(): number {
       return Math.ceil(this.total / this.size) || 1;
     },
     paginatedItems(): Fornecedor[] {
       const start = (this.page - 1) * this.size;
-      return this.items.slice(start, start + this.size);
+      return this.filteredItems.slice(start, start + this.size);
+    }
+  },
+  watch: {
+    searchQuery() {
+      this.page = 1;
     }
   },
   mounted() {
@@ -78,6 +96,13 @@ export default defineComponent({
       } finally {
         this.loading = false;
       }
+    },
+    search() {
+      this.page = 1;
+    },
+    clearFilters() {
+      this.searchQuery = '';
+      this.page = 1;
     },
     openForm() {
       this.form = emptyForm();
@@ -161,6 +186,15 @@ export default defineComponent({
       {{ success }}
     </v-alert>
 
+    <SearchFilterCard
+      v-model="searchQuery"
+      label="Pesquisar fornecedor"
+      placeholder="Nome da empresa, cidade ou telefone..."
+      :loading="loading"
+      @search="search"
+      @clear="clearFilters"
+    />
+
     <v-card class="data-card">
       <v-progress-linear v-if="loading" color="primary" indeterminate />
       <v-table>
@@ -198,7 +232,11 @@ export default defineComponent({
               />
             </td>
           </tr>
-          <EmptyTableRow v-if="!loading && items.length === 0" :columns="5" message="Nenhum fornecedor cadastrado." />
+          <EmptyTableRow
+            v-if="!loading && filteredItems.length === 0"
+            :columns="5"
+            :message="searchQuery ? 'Nenhum fornecedor encontrado para a pesquisa.' : 'Nenhum fornecedor cadastrado.'"
+          />
         </tbody>
       </v-table>
       <v-divider />

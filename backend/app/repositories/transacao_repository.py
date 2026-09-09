@@ -91,37 +91,53 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         ]
 
     async def get_current_stock_by_product(
-        self, *, page: int = 1, size: int = 20
+        self, *, page: int = 1, size: int = 20, nome: str | None = None
     ) -> tuple[list[dict[str, Any]], int]:
         """Retorna o estoque agregado com paginação executada no PostgreSQL."""
 
+        where_clause = "WHERE p.excluido_em IS NULL"
+        params: dict[str, Any] = {"size": size, "offset": (page - 1) * size}
+        if nome:
+            where_clause += " AND p.nome ILIKE :nome"
+            params["nome"] = f"%{nome}%"
+
         total = int(
             await self.session.scalar(
-                text("SELECT COUNT(*) FROM produtos WHERE excluido_em IS NULL")
+                text(f"SELECT COUNT(*) FROM produtos p {where_clause}"),
+                params,
             )
             or 0
         )
         rows = await self.session.execute(
-            text("""
+            text(f"""
+                WITH pagina_produtos AS (
+                    SELECT p.id, p.nome
+                    FROM produtos p
+                    {where_clause}
+                    ORDER BY p.nome, p.id
+                    LIMIT :size OFFSET :offset
+                )
                 SELECT
-                    p.id,
-                    p.nome,
+                    pp.id,
+                    pp.nome,
                     COALESCE(e.qtd, 0) AS qtd,
                     COALESCE(l.total_lotes, 0) AS total_lotes,
                     COALESCE(lv.lotes_vencendo, 0) AS lotes_vencendo,
                     COALESCE(lv.lotes_vencidos, 0) AS lotes_vencidos
-                FROM produtos p
+                FROM pagina_produtos pp
                 LEFT JOIN (
-                    SELECT produto_id, SUM(quantidade) AS qtd
-                    FROM estoque_produto
-                    GROUP BY produto_id
-                ) e ON e.produto_id = p.id
+                    SELECT ep.produto_id, SUM(ep.quantidade) AS qtd
+                    FROM estoque_produto ep
+                    WHERE ep.produto_id IN (SELECT id FROM pagina_produtos)
+                    GROUP BY ep.produto_id
+                ) e ON e.produto_id = pp.id
                 LEFT JOIN (
-                    SELECT produto_id, COUNT(id) AS total_lotes
-                    FROM lotes
-                    WHERE excluido_em IS NULL
-                    GROUP BY produto_id
-                ) l ON l.produto_id = p.id
+                    SELECT lote.produto_id, COUNT(lote.id) AS total_lotes
+                    FROM lotes lote
+                    WHERE lote.excluido_em IS NULL
+                      AND lote.produto_id IN (SELECT id FROM pagina_produtos)
+                    GROUP BY lote.produto_id
+                ) l ON l.produto_id = pp.id
                 LEFT JOIN (
                     SELECT
                         lote.produto_id,
@@ -133,13 +149,12 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
                      AND ep.produto_id = lote.produto_id
                      AND ep.quantidade > 0
                     WHERE lote.excluido_em IS NULL
+                      AND lote.produto_id IN (SELECT id FROM pagina_produtos)
                     GROUP BY lote.produto_id
-                ) lv ON lv.produto_id = p.id
-                WHERE p.excluido_em IS NULL
-                ORDER BY p.nome, p.id
-                LIMIT :size OFFSET :offset
+                ) lv ON lv.produto_id = pp.id
+                ORDER BY pp.nome, pp.id
                 """),
-            {"size": size, "offset": (page - 1) * size},
+            params,
         )
         itens = [
             {

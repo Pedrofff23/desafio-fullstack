@@ -6,13 +6,14 @@ import ActiveStatusChip from '@/components/ActiveStatusChip.vue';
 import EmptyTableRow from '@/components/EmptyTableRow.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import PaginationControls from '@/components/PaginationControls.vue';
+import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Usuario } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatContact } from '@/utils/formatters';
 
 export default defineComponent({
   name: 'UsuariosView',
-  components: { ActiveStatusChip, EmptyTableRow, PageHeader, PaginationControls },
+  components: { ActiveStatusChip, EmptyTableRow, PageHeader, PaginationControls, SearchFilterCard },
   data() {
     return {
       items: [] as Usuario[],
@@ -92,15 +93,14 @@ export default defineComponent({
       {{ success }}
     </v-alert>
 
-    <v-card class="data-card mb-4 pa-4">
-      <v-form @submit.prevent="search">
-        <div class="d-flex flex-column flex-md-row ga-3 align-md-center">
-          <v-text-field v-model.trim="nome" label="Pesquisar por nome" prepend-inner-icon="mdi-magnify" hide-details clearable />
-          <v-btn color="#560894" type="submit" :loading="loading">Pesquisar</v-btn>
-          <v-btn variant="text" @click="clearFilters">Limpar</v-btn>
-        </div>
-      </v-form>
-    </v-card>
+    <SearchFilterCard
+      v-model="nome"
+      label="Pesquisar por nome"
+      placeholder="Digite o nome do usuário..."
+      :loading="loading"
+      @search="search"
+      @clear="clearFilters"
+    />
 
     <v-card class="data-card">
       <v-progress-linear v-if="loading" color="primary" indeterminate />
