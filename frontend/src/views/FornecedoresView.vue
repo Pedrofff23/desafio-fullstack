@@ -5,9 +5,7 @@ import { transacoesApi } from '@/api/transacoes';
 import ActiveStatusChip from '@/components/ActiveStatusChip.vue';
 import AddressFields from '@/components/AddressFields.vue';
 import ContactFields from '@/components/ContactFields.vue';
-import EmptyTableRow from '@/components/EmptyTableRow.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import PaginationControls from '@/components/PaginationControls.vue';
 import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Fornecedor, FornecedorCreate } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
@@ -29,15 +27,21 @@ export default defineComponent({
     ActiveStatusChip,
     AddressFields,
     ContactFields,
-    EmptyTableRow,
     PageHeader,
-    PaginationControls,
     SearchFilterCard
   },
   data() {
     return {
       items: [] as Fornecedor[],
       searchQuery: '',
+      headers: [
+        { title: 'Empresa', key: 'nome_empresa', sortable: false },
+        { title: 'Contato', key: 'contato', sortable: false },
+        { title: 'Cidade', key: 'cidade', sortable: false },
+        { title: 'Situação', key: 'ativo', sortable: false },
+        { title: 'Ações', key: 'actions', align: 'end' as const, sortable: false }
+      ],
+      pageSizeOptions: [10, 20, 50, 100],
       page: 1,
       size: 20,
       form: emptyForm(),
@@ -61,16 +65,6 @@ export default defineComponent({
         const tel = `${item.contato?.ddd || ''}${item.contato?.numero || ''}`;
         return empresa.includes(query) || cidade.includes(query) || tel.includes(query);
       });
-    },
-    total(): number {
-      return this.filteredItems.length;
-    },
-    pages(): number {
-      return Math.ceil(this.total / this.size) || 1;
-    },
-    paginatedItems(): Fornecedor[] {
-      const start = (this.page - 1) * this.size;
-      return this.filteredItems.slice(start, start + this.size);
     }
   },
   watch: {
@@ -86,11 +80,9 @@ export default defineComponent({
     formatDateTime,
     async load() {
       this.loading = true;
+      this.error = '';
       try {
         this.items = await transacoesApi.fornecedores();
-        if (this.page > this.pages) {
-          this.page = Math.max(this.pages, 1);
-        }
       } catch (error) {
         this.error = getErrorMessage(error);
       } finally {
@@ -105,9 +97,8 @@ export default defineComponent({
       this.page = 1;
     },
     openForm() {
-      this.form = emptyForm();
       this.editingId = null;
-      this.error = '';
+      this.form = emptyForm();
       this.dialog = true;
     },
     inspect(supplier: Fornecedor) {
@@ -120,18 +111,15 @@ export default defineComponent({
         nome_empresa: supplier.nome_empresa,
         ativo: supplier.ativo,
         contato: createContactInput(supplier.contato),
-        endereco: createAddressInput({
-          ...supplier.endereco,
-          estado_id: supplier.endereco.cidade.estado_id,
-          cidade_id: supplier.endereco.cidade.id
-        })
+        endereco: createAddressInput(supplier.endereco)
       };
-      this.error = '';
       this.dialog = true;
     },
     async remove(supplier: Fornecedor) {
-      if (!window.confirm(`Deseja excluir o fornecedor ${supplier.nome_empresa}?`)) return;
+      const confirmed = window.confirm(`Deseja excluir o fornecedor ${supplier.nome_empresa}?`);
+      if (!confirmed) return;
       this.error = '';
+      this.success = '';
       try {
         await transacoesApi.deleteFornecedor(supplier.id);
         this.success = 'Fornecedor excluído com sucesso.';
@@ -141,28 +129,28 @@ export default defineComponent({
       }
     },
     async submit() {
-      if (
-        !this.form.nome_empresa ||
-        !this.form.contato.ddd ||
-        !this.form.contato.numero ||
-        !this.form.endereco.estado_id ||
-        !this.form.endereco.cidade_id
-      ) {
-        this.error = 'Preencha todos os campos obrigatórios.';
+      if (!this.form.nome_empresa.trim()) {
+        this.error = 'O nome da empresa é obrigatório.';
         return;
       }
       this.saving = true;
       this.error = '';
+      this.success = '';
       try {
-        const payload = {
-          ...this.form,
+        const payload: FornecedorCreate = {
+          nome_empresa: this.form.nome_empresa.trim(),
+          ativo: this.form.ativo,
           contato: normalizeContactInput(this.form.contato),
           endereco: normalizeAddressInput(this.form.endereco)
         };
-        if (this.editingId) await transacoesApi.updateFornecedor(this.editingId, payload);
-        else await transacoesApi.createFornecedor(payload);
+        if (this.editingId) {
+          await transacoesApi.updateFornecedor(this.editingId, payload);
+          this.success = 'Fornecedor atualizado com sucesso.';
+        } else {
+          await transacoesApi.createFornecedor(payload);
+          this.success = 'Fornecedor cadastrado com sucesso.';
+        }
         this.dialog = false;
-        this.success = this.editingId ? 'Fornecedor atualizado com sucesso.' : 'Fornecedor cadastrado com sucesso.';
         await this.load();
       } catch (error) {
         this.error = getErrorMessage(error);
@@ -196,51 +184,58 @@ export default defineComponent({
     />
 
     <v-card class="data-card">
-      <v-progress-linear v-if="loading" color="primary" indeterminate />
-      <v-table>
-        <thead>
-          <tr>
-            <th>Empresa</th>
-            <th>Contato</th>
-            <th>Cidade</th>
-            <th>Situação</th>
-            <th class="text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="supplier in paginatedItems" :key="supplier.id">
-            <td class="font-weight-medium">{{ supplier.nome_empresa }}</td>
-            <td>{{ formatContact(supplier.contato) }}</td>
-            <td>{{ supplier.endereco.cidade.nome }}</td>
-            <td><ActiveStatusChip :active="supplier.ativo" /></td>
-            <td class="text-right text-no-wrap">
-              <v-btn
-                icon="mdi-information-outline"
-                size="small"
-                variant="text"
-                title="Inspecionar fornecedor"
-                @click="inspect(supplier)"
-              />
-              <v-btn icon="mdi-pencil-outline" size="small" variant="text" title="Editar fornecedor" @click="edit(supplier)" />
-              <v-btn
-                icon="mdi-delete-outline"
-                color="error"
-                size="small"
-                variant="text"
-                title="Excluir fornecedor"
-                @click="remove(supplier)"
-              />
-            </td>
-          </tr>
-          <EmptyTableRow
-            v-if="!loading && filteredItems.length === 0"
-            :columns="5"
-            :message="searchQuery ? 'Nenhum fornecedor encontrado para a pesquisa.' : 'Nenhum fornecedor cadastrado.'"
-          />
-        </tbody>
-      </v-table>
-      <v-divider />
-      <PaginationControls v-model="page" :pages="pages" :total="total" />
+      <v-data-table
+        v-model:page="page"
+        v-model:items-per-page="size"
+        :headers="headers"
+        :items="filteredItems"
+        :loading="loading"
+        :items-per-page-options="pageSizeOptions"
+        items-per-page-text="Itens por página:"
+      >
+        <template #item.nome_empresa="{ item }">
+          <span class="font-weight-medium">{{ item.nome_empresa }}</span>
+        </template>
+
+        <template #item.contato="{ item }">
+          {{ formatContact(item.contato) }}
+        </template>
+
+        <template #item.cidade="{ item }">
+          {{ item.endereco.cidade.nome }}
+        </template>
+
+        <template #item.ativo="{ item }">
+          <ActiveStatusChip :active="item.ativo" />
+        </template>
+
+        <template #item.actions="{ item }">
+          <div class="d-flex align-center justify-end ga-1">
+            <v-btn
+              icon="mdi-information-outline"
+              size="small"
+              variant="text"
+              title="Inspecionar fornecedor"
+              @click="inspect(item)"
+            />
+            <v-btn icon="mdi-pencil-outline" size="small" variant="text" title="Editar fornecedor" @click="edit(item)" />
+            <v-btn
+              icon="mdi-delete-outline"
+              color="error"
+              size="small"
+              variant="text"
+              title="Excluir fornecedor"
+              @click="remove(item)"
+            />
+          </div>
+        </template>
+
+        <template #no-data>
+          <div class="pa-4 text-center text-medium-emphasis">
+            {{ searchQuery ? 'Nenhum fornecedor encontrado para a pesquisa.' : 'Nenhum fornecedor cadastrado.' }}
+          </div>
+        </template>
+      </v-data-table>
     </v-card>
 
     <v-dialog v-model="dialog" max-width="900" persistent>

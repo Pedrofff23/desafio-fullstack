@@ -5,9 +5,7 @@ import { listAllPages } from '@/api/pagination';
 import { produtosApi } from '@/api/produtos';
 import { transacoesApi, type HistoricoFilters } from '@/api/transacoes';
 import { usuariosApi } from '@/api/usuarios';
-import EmptyTableRow from '@/components/EmptyTableRow.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import PaginationControls from '@/components/PaginationControls.vue';
 import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Movimento, Produto, Usuario } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
@@ -15,7 +13,7 @@ import { formatCurrency, formatDateTime, formatQuantity } from '@/utils/formatte
 
 export default defineComponent({
   name: 'HistoricoView',
-  components: { EmptyTableRow, PageHeader, PaginationControls, SearchFilterCard },
+  components: { PageHeader, SearchFilterCard },
   data() {
     return {
       items: [] as Movimento[],
@@ -29,6 +27,16 @@ export default defineComponent({
         data_inicio: '',
         data_fim: ''
       },
+      headers: [
+        { title: 'Data', key: 'data_movimento', sortable: false },
+        { title: 'Movimento', key: 'tipo_movimento', sortable: false },
+        { title: 'Produto', key: 'produto_nome', sortable: false },
+        { title: 'Quantidade', key: 'quantidade', sortable: false },
+        { title: 'Preço da movimentação', key: 'preco', sortable: false },
+        { title: 'Responsável', key: 'responsavel_email', sortable: false },
+        { title: 'Observação', key: 'observacao', sortable: false }
+      ],
+      pageSizeOptions: [10, 20, 50, 100],
       page: 1,
       size: 20,
       pages: 0,
@@ -45,17 +53,11 @@ export default defineComponent({
       }));
     }
   },
-  watch: {
-    page() {
-      void this.load();
-    }
-  },
   async mounted() {
     try {
       const [products, users] = await Promise.all([listAllPages(produtosApi.listar), listAllPages(usuariosApi.listar)]);
       this.products = products;
       this.users = users;
-      await this.load();
     } catch (error) {
       this.error = getErrorMessage(error);
     }
@@ -64,9 +66,11 @@ export default defineComponent({
     formatCurrency,
     formatDateTime,
     formatQuantity,
-    async load() {
+    async load(page?: number, size?: number) {
       this.loading = true;
       this.error = '';
+      if (page !== undefined) this.page = page;
+      if (size !== undefined) this.size = size;
       const params: HistoricoFilters = { page: this.page, size: this.size };
       if (this.filters.produto_id) params.produto_id = this.filters.produto_id;
       if (this.filters.tipo) params.tipo = this.filters.tipo;
@@ -85,9 +89,12 @@ export default defineComponent({
         this.loading = false;
       }
     },
+    onOptionsUpdate(options: { page: number; itemsPerPage: number }) {
+      void this.load(options.page, options.itemsPerPage);
+    },
     search() {
-      if (this.page === 1) void this.load();
-      else this.page = 1;
+      this.page = 1;
+      void this.load(1, this.size);
     },
     clearFilters() {
       this.filters = {
@@ -161,48 +168,61 @@ export default defineComponent({
     </SearchFilterCard>
 
     <v-card class="data-card">
-      <v-progress-linear v-if="loading" color="primary" indeterminate />
-      <v-table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Movimento</th>
-            <th>Produto</th>
-            <th>Quantidade</th>
-            <th>Preço da movimentação</th>
-            <th>Responsável</th>
-            <th>Observação</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="movement in items" :key="`${movement.tipo}-${movement.id}`">
-            <td>{{ formatDateTime(movement.data_movimento) }}</td>
-            <td>
-              <v-chip
-                :color="movement.tipo === 'entrada' ? 'success' : 'warning'"
-                size="small"
-                variant="tonal"
-                :prepend-icon="movement.tipo === 'entrada' ? 'mdi-package-down' : 'mdi-package-up'"
-              >
-                {{ movement.tipo_movimento }}
-              </v-chip>
-            </td>
-            <td>{{ movement.produto_nome ?? '—' }}</td>
-            <td>{{ formatQuantity(movement.quantidade) }}</td>
-            <td>
-              <div>{{ formatCurrency(movement.preco) }}</div>
-              <div class="text-caption text-medium-emphasis">
-                {{ movement.tipo === 'entrada' ? 'Custo da entrada' : 'Preço da venda' }}
-              </div>
-            </td>
-            <td>{{ movement.responsavel_email ?? '—' }}</td>
-            <td>{{ movement.observacao ?? '—' }}</td>
-          </tr>
-          <EmptyTableRow v-if="!loading && items.length === 0" :columns="7" message="Nenhuma movimentação encontrada." />
-        </tbody>
-      </v-table>
-      <v-divider />
-      <PaginationControls v-model="page" :pages="pages" :total="total" />
+      <v-data-table-server
+        v-model:page="page"
+        v-model:items-per-page="size"
+        :headers="headers"
+        :items="items"
+        :items-length="total"
+        :loading="loading"
+        :items-per-page-options="pageSizeOptions"
+        items-per-page-text="Itens por página:"
+        @update:options="onOptionsUpdate"
+      >
+        <template #item.data_movimento="{ item }">
+          {{ formatDateTime(item.data_movimento) }}
+        </template>
+
+        <template #item.tipo_movimento="{ item }">
+          <v-chip
+            :color="item.tipo === 'entrada' ? 'success' : 'warning'"
+            size="small"
+            variant="tonal"
+            :prepend-icon="item.tipo === 'entrada' ? 'mdi-package-down' : 'mdi-package-up'"
+          >
+            {{ item.tipo_movimento }}
+          </v-chip>
+        </template>
+
+        <template #item.produto_nome="{ item }">
+          {{ item.produto_nome ?? '—' }}
+        </template>
+
+        <template #item.quantidade="{ item }">
+          {{ formatQuantity(item.quantidade) }}
+        </template>
+
+        <template #item.preco="{ item }">
+          <div>{{ formatCurrency(item.preco) }}</div>
+          <div class="text-caption text-medium-emphasis">
+            {{ item.tipo === 'entrada' ? 'Custo da entrada' : 'Preço da venda' }}
+          </div>
+        </template>
+
+        <template #item.responsavel_email="{ item }">
+          {{ item.responsavel_email ?? '—' }}
+        </template>
+
+        <template #item.observacao="{ item }">
+          {{ item.observacao ?? '—' }}
+        </template>
+
+        <template #no-data>
+          <div class="pa-4 text-center text-medium-emphasis">
+            Nenhuma movimentação encontrada.
+          </div>
+        </template>
+      </v-data-table-server>
     </v-card>
   </div>
 </template>

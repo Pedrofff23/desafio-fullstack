@@ -3,9 +3,7 @@ import { defineComponent } from 'vue';
 
 import { usuariosApi } from '@/api/usuarios';
 import ActiveStatusChip from '@/components/ActiveStatusChip.vue';
-import EmptyTableRow from '@/components/EmptyTableRow.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import PaginationControls from '@/components/PaginationControls.vue';
 import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Usuario } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
@@ -13,11 +11,20 @@ import { formatContact } from '@/utils/formatters';
 
 export default defineComponent({
   name: 'UsuariosView',
-  components: { ActiveStatusChip, EmptyTableRow, PageHeader, PaginationControls, SearchFilterCard },
+  components: { ActiveStatusChip, PageHeader, SearchFilterCard },
   data() {
     return {
       items: [] as Usuario[],
       nome: '',
+      headers: [
+        { title: 'Nome', key: 'nome', sortable: false },
+        { title: 'E-mail', key: 'email', sortable: false },
+        { title: 'Contato', key: 'contato', sortable: false },
+        { title: 'Perfil', key: 'perfil', sortable: false },
+        { title: 'Situação', key: 'ativo', sortable: false },
+        { title: 'Ações', key: 'actions', align: 'end' as const, sortable: false }
+      ],
+      pageSizeOptions: [10, 20, 50, 100],
       page: 1,
       size: 20,
       pages: 0,
@@ -27,19 +34,13 @@ export default defineComponent({
       success: ''
     };
   },
-  watch: {
-    page() {
-      void this.load();
-    }
-  },
-  mounted() {
-    void this.load();
-  },
   methods: {
     formatContact,
-    async load() {
+    async load(page?: number, size?: number) {
       this.loading = true;
       this.error = '';
+      if (page !== undefined) this.page = page;
+      if (size !== undefined) this.size = size;
       try {
         const response = await usuariosApi.listar({
           page: this.page,
@@ -55,9 +56,12 @@ export default defineComponent({
         this.loading = false;
       }
     },
+    onOptionsUpdate(options: { page: number; itemsPerPage: number }) {
+      void this.load(options.page, options.itemsPerPage);
+    },
     search() {
-      if (this.page === 1) void this.load();
-      else this.page = 1;
+      this.page = 1;
+      void this.load(1, this.size);
     },
     clearFilters() {
       this.nome = '';
@@ -103,52 +107,63 @@ export default defineComponent({
     />
 
     <v-card class="data-card">
-      <v-progress-linear v-if="loading" color="primary" indeterminate />
-      <v-table>
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>E-mail</th>
-            <th>Contato</th>
-            <th>Perfil</th>
-            <th>Situação</th>
-            <th class="text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="usuario in items" :key="usuario.id">
-            <td class="font-weight-medium">{{ usuario.funcionario.nome_completo }}</td>
-            <td>{{ usuario.email }}</td>
-            <td>{{ formatContact(usuario.funcionario.contato) }}</td>
-            <td>
-              <v-chip size="small" variant="tonal">{{ usuario.perfil }}</v-chip>
-            </td>
-            <td><ActiveStatusChip :active="usuario.ativo" /></td>
-            <td>
-              <div class="table-actions">
-                <v-btn
-                  :to="`/usuarios/${usuario.id}/editar`"
-                  icon="mdi-pencil-outline"
-                  size="small"
-                  variant="text"
-                  title="Editar"
-                />
-                <v-btn
-                  icon="mdi-delete-outline"
-                  size="small"
-                  variant="text"
-                  color="error"
-                  title="Excluir"
-                  @click="remove(usuario)"
-                />
-              </div>
-            </td>
-          </tr>
-          <EmptyTableRow v-if="!loading && items.length === 0" :columns="6" message="Nenhum usuário encontrado." />
-        </tbody>
-      </v-table>
-      <v-divider />
-      <PaginationControls v-model="page" :pages="pages" :total="total" />
+      <v-data-table-server
+        v-model:page="page"
+        v-model:items-per-page="size"
+        :headers="headers"
+        :items="items"
+        :items-length="total"
+        :loading="loading"
+        :items-per-page-options="pageSizeOptions"
+        items-per-page-text="Itens por página:"
+        @update:options="onOptionsUpdate"
+      >
+        <template #item.nome="{ item }">
+          <span class="font-weight-medium">{{ item.funcionario.nome_completo }}</span>
+        </template>
+
+        <template #item.email="{ item }">
+          {{ item.email }}
+        </template>
+
+        <template #item.contato="{ item }">
+          {{ formatContact(item.funcionario.contato) }}
+        </template>
+
+        <template #item.perfil="{ item }">
+          <v-chip size="small" variant="tonal">{{ item.perfil }}</v-chip>
+        </template>
+
+        <template #item.ativo="{ item }">
+          <ActiveStatusChip :active="item.ativo" />
+        </template>
+
+        <template #item.actions="{ item }">
+          <div class="table-actions">
+            <v-btn
+              :to="`/usuarios/${item.id}/editar`"
+              icon="mdi-pencil-outline"
+              size="small"
+              variant="text"
+              title="Editar"
+            />
+            <v-btn
+              icon="mdi-delete-outline"
+              size="small"
+              variant="text"
+              color="error"
+              title="Excluir"
+              @click="remove(item)"
+            />
+          </div>
+        </template>
+
+        <template #no-data>
+          <div class="pa-4 text-center text-medium-emphasis">
+            Nenhum usuário encontrado.
+          </div>
+        </template>
+      </v-data-table-server>
     </v-card>
   </div>
 </template>

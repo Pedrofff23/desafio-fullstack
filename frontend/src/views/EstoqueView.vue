@@ -20,10 +20,8 @@ export default defineComponent({
   name: 'EstoqueView',
   components: {
     ActiveStatusChip,
-    EmptyTableRow,
     LotExpirationChip,
     PageHeader,
-    PaginationControls,
     ProductInspectionDialog,
     SearchFilterCard
   },
@@ -31,6 +29,14 @@ export default defineComponent({
     return {
       items: [] as EstoqueProduto[],
       searchQuery: '',
+      headers: [
+        { title: 'Produto', key: 'produto_nome', sortable: false },
+        { title: 'Quantidade disponível', key: 'quantidade', align: 'end' as const, sortable: false },
+        { title: 'Lotes', key: 'total_lotes', align: 'center' as const, sortable: false },
+        { title: 'Validade', key: 'validade', align: 'center' as const, sortable: false },
+        { title: 'Ações', key: 'actions', align: 'end' as const, sortable: false }
+      ],
+      pageSizeOptions: [10, 20, 50, 100],
       page: 1,
       size: 20,
       pages: 0,
@@ -76,18 +82,9 @@ export default defineComponent({
     }
   },
   watch: {
-    page() {
-      void this.load();
-    },
     lotFilter() {
       this.lotPage = 1;
-    },
-    searchQuery() {
-      this.page = 1;
     }
-  },
-  mounted() {
-    void this.load();
   },
   methods: {
     formatDate,
@@ -152,9 +149,11 @@ export default defineComponent({
         this.lotLoading = false;
       }
     },
-    async load() {
+    async load(page?: number, size?: number) {
       this.loading = true;
       this.error = '';
+      if (page !== undefined) this.page = page;
+      if (size !== undefined) this.size = size;
       try {
         const response = await transacoesApi.estoque(this.page, this.size, this.searchQuery || undefined);
         this.items = response.items;
@@ -166,9 +165,12 @@ export default defineComponent({
         this.loading = false;
       }
     },
+    onOptionsUpdate(options: { page: number; itemsPerPage: number }) {
+      void this.load(options.page, options.itemsPerPage);
+    },
     search() {
-      if (this.page === 1) void this.load();
-      else this.page = 1;
+      this.page = 1;
+      void this.load(1, this.size);
     },
     clearFilters() {
       this.searchQuery = '';
@@ -198,107 +200,108 @@ export default defineComponent({
     />
 
     <v-card class="data-card">
-      <v-progress-linear v-if="loading" color="primary" indeterminate />
-      <v-table>
-        <thead>
-          <tr>
-            <th>Produto</th>
-            <th class="text-right">Quantidade disponível</th>
-            <th class="text-center">Lotes</th>
-            <th class="text-center">Validade</th>
-            <th class="text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in items" :key="item.produto_id">
-            <td class="font-weight-medium">
-              <div class="d-flex align-center ga-2">
-                <span>{{ item.produto_nome }}</span>
-                <v-icon
-                  v-if="item.quantidade > 0 && item.lotes_vencidos > 0"
-                  icon="mdi-alert-circle"
-                  color="error"
-                  size="small"
-                  title="Possui lotes vencidos"
-                />
-                <v-icon
-                  v-else-if="item.quantidade > 0 && item.lotes_vencendo > 0"
-                  icon="mdi-clock-alert-outline"
-                  color="warning"
-                  size="small"
-                  title="Possui lotes próximos do vencimento"
-                />
-              </div>
-            </td>
-            <td class="text-right">
-              <v-chip :color="item.quantidade <= 0 ? 'error' : 'primary'" variant="tonal">
-                {{ formatQuantity(item.quantidade) }}
-              </v-chip>
-            </td>
-            <td class="text-center">
-              <v-chip size="small" variant="tonal" :color="item.total_lotes > 0 ? 'primary' : 'grey'">
-                {{ item.total_lotes }} {{ item.total_lotes === 1 ? 'lote' : 'lotes' }}
-              </v-chip>
-            </td>
-            <td class="text-center">
-              <div class="d-flex align-center justify-center ga-1">
-                <template v-if="item.quantidade > 0">
-                  <v-chip
-                    v-if="item.lotes_vencidos > 0"
-                    color="error"
-                    size="small"
-                    variant="tonal"
-                    prepend-icon="mdi-calendar-remove"
-                  >
-                    {{ item.lotes_vencidos }}
-                    {{ item.lotes_vencidos === 1 ? 'vencido' : 'vencidos' }}
-                  </v-chip>
-                  <v-chip
-                    v-if="item.lotes_vencendo > 0"
-                    color="warning"
-                    size="small"
-                    variant="tonal"
-                    prepend-icon="mdi-clock-alert-outline"
-                  >
-                    {{ item.lotes_vencendo }} vencendo
-                  </v-chip>
-                  <v-chip
-                    v-if="item.lotes_vencidos === 0 && item.lotes_vencendo === 0"
-                    color="success"
-                    size="small"
-                    variant="tonal"
-                    prepend-icon="mdi-calendar-check-outline"
-                  >
-                    Em dia
-                  </v-chip>
-                </template>
-                <v-chip v-else color="grey" size="small" variant="tonal" prepend-icon="mdi-package-variant-remove">
-                  Sem estoque
-                </v-chip>
-              </div>
-            </td>
-            <td class="text-right">
-              <v-btn
-                icon="mdi-information-outline"
+      <v-data-table-server
+        v-model:page="page"
+        v-model:items-per-page="size"
+        :headers="headers"
+        :items="items"
+        :items-length="total"
+        :loading="loading"
+        :items-per-page-options="pageSizeOptions"
+        items-per-page-text="Itens por página:"
+        @update:options="onOptionsUpdate"
+      >
+        <template #item.produto_nome="{ item }">
+          <div class="d-flex align-center ga-2 font-weight-medium">
+            <span>{{ item.produto_nome }}</span>
+            <v-icon
+              v-if="item.quantidade > 0 && item.lotes_vencidos > 0"
+              icon="mdi-alert-circle"
+              color="error"
+              size="small"
+              title="Possui lotes vencidos"
+            />
+            <v-icon
+              v-else-if="item.quantidade > 0 && item.lotes_vencendo > 0"
+              icon="mdi-clock-alert-outline"
+              color="warning"
+              size="small"
+              title="Possui lotes próximos do vencimento"
+            />
+          </div>
+        </template>
+
+        <template #item.quantidade="{ item }">
+          <v-chip :color="item.quantidade <= 0 ? 'error' : 'primary'" variant="tonal">
+            {{ formatQuantity(item.quantidade) }}
+          </v-chip>
+        </template>
+
+        <template #item.total_lotes="{ item }">
+          <v-chip size="small" variant="tonal" :color="item.total_lotes > 0 ? 'primary' : 'grey'">
+            {{ item.total_lotes }} {{ item.total_lotes === 1 ? 'lote' : 'lotes' }}
+          </v-chip>
+        </template>
+
+        <template #item.validade="{ item }">
+          <div class="d-flex align-center justify-center ga-1">
+            <template v-if="item.quantidade > 0">
+              <v-chip
+                v-if="item.lotes_vencidos > 0"
+                color="error"
                 size="small"
-                variant="text"
-                title="Inspecionar produto"
-                @click="inspectProduct(item)"
-              />
-              <v-btn prepend-icon="mdi-package-variant-closed" size="small" variant="tonal" @click="openLots(item)">
-                Visualizar lotes
-              </v-btn>
-            </td>
-          </tr>
-          <EmptyTableRow
-            v-if="!loading && items.length === 0"
-            :columns="5"
-            :message="searchQuery ? 'Nenhum produto encontrado no estoque para a pesquisa.' : 'Nenhum produto cadastrado.'"
-          />
-        </tbody>
-      </v-table>
-      <v-divider />
-      <PaginationControls v-model="page" :pages="pages" :total="total" />
+                variant="tonal"
+                prepend-icon="mdi-calendar-remove"
+              >
+                {{ item.lotes_vencidos }}
+                {{ item.lotes_vencidos === 1 ? 'vencido' : 'vencidos' }}
+              </v-chip>
+              <v-chip
+                v-if="item.lotes_vencendo > 0"
+                color="warning"
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-clock-alert-outline"
+              >
+                {{ item.lotes_vencendo }} vencendo
+              </v-chip>
+              <v-chip
+                v-if="item.lotes_vencidos === 0 && item.lotes_vencendo === 0"
+                color="success"
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-calendar-check-outline"
+              >
+                Em dia
+              </v-chip>
+            </template>
+            <v-chip v-else color="grey" size="small" variant="tonal" prepend-icon="mdi-package-variant-remove">
+              Sem estoque
+            </v-chip>
+          </div>
+        </template>
+
+        <template #item.actions="{ item }">
+          <div class="d-flex align-center justify-end ga-1">
+            <v-btn
+              icon="mdi-information-outline"
+              size="small"
+              variant="text"
+              title="Inspecionar produto"
+              @click="inspectProduct(item)"
+            />
+            <v-btn prepend-icon="mdi-package-variant-closed" size="small" variant="tonal" @click="openLots(item)">
+              Visualizar lotes
+            </v-btn>
+          </div>
+        </template>
+
+        <template #no-data>
+          <div class="pa-4 text-center text-medium-emphasis">
+            {{ searchQuery ? 'Nenhum produto encontrado no estoque para a pesquisa.' : 'Nenhum produto cadastrado.' }}
+          </div>
+        </template>
+      </v-data-table-server>
     </v-card>
 
     <v-dialog v-model="lotDialog" max-width="1280">

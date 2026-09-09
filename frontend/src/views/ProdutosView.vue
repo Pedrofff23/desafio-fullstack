@@ -29,7 +29,6 @@ export default defineComponent({
   name: 'ProdutosView',
   components: {
     ActiveStatusChip,
-    EmptyTableRow,
     LotExpirationChip,
     PageHeader,
     PaginationControls,
@@ -51,6 +50,15 @@ export default defineComponent({
         { title: 'Estoque baixo', value: 'estoque_baixo' },
         { title: 'Sem estoque', value: 'zerado' }
       ],
+      headers: [
+        { title: 'Produto', key: 'nome', sortable: false },
+        { title: 'Preço', key: 'preco', sortable: false },
+        { title: 'Quantidade em estoque', key: 'quantidade_estoque', sortable: false },
+        { title: 'Lotes', key: 'total_lotes', align: 'center' as const, sortable: false },
+        { title: 'Status do estoque', key: 'status', sortable: false },
+        { title: 'Ações', key: 'actions', align: 'end' as const, sortable: false }
+      ],
+      pageSizeOptions: [10, 20, 50, 100],
       page: 1,
       size: 20,
       pages: 0,
@@ -99,15 +107,9 @@ export default defineComponent({
     }
   },
   watch: {
-    page() {
-      void this.load();
-    },
     lotFilter() {
       this.lotPage = 1;
     }
-  },
-  mounted() {
-    void this.load();
   },
   methods: {
     formatCurrency,
@@ -138,9 +140,11 @@ export default defineComponent({
         })
         .join('; ');
     },
-    async load() {
+    async load(page?: number, size?: number) {
       this.loading = true;
       this.error = '';
+      if (page !== undefined) this.page = page;
+      if (size !== undefined) this.size = size;
       const params: ProdutoFilters = { page: this.page, size: this.size };
       if (this.filters.nome) params.nome = this.filters.nome;
       if (this.filters.status) params.status = this.filters.status;
@@ -157,9 +161,12 @@ export default defineComponent({
         this.loading = false;
       }
     },
+    onOptionsUpdate(options: { page: number; itemsPerPage: number }) {
+      void this.load(options.page, options.itemsPerPage);
+    },
     search() {
-      if (this.page === 1) void this.load();
-      else this.page = 1;
+      this.page = 1;
+      void this.load(1, this.size);
     },
     clearFilters() {
       this.filters = { nome: '', status: null, preco_min: null, preco_max: null };
@@ -302,71 +309,80 @@ export default defineComponent({
     </SearchFilterCard>
 
     <v-card class="data-card">
-      <v-progress-linear v-if="loading" color="primary" indeterminate />
-      <v-table>
-        <thead>
-          <tr>
-            <th>Produto</th>
-            <th>Preço</th>
-            <th>Quantidade em estoque</th>
-            <th class="text-center">Lotes</th>
-            <th>Status do estoque</th>
-            <th class="text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="produto in items" :key="produto.id">
-            <td>
-              <div class="font-weight-medium">{{ produto.nome }}</div>
-              <div class="text-caption text-medium-emphasis">{{ produto.codigo }}</div>
-            </td>
-            <td>{{ formatCurrency(produto.preco) }}</td>
-            <td>{{ formatQuantity(produto.quantidade_estoque) }}</td>
-            <td class="text-center">
-              <v-chip size="small" variant="tonal" :color="produto.total_lotes > 0 ? 'primary' : 'grey'">
-                {{ produto.total_lotes }} {{ produto.total_lotes === 1 ? 'lote' : 'lotes' }}
-              </v-chip>
-            </td>
-            <td><ProductStatusChip :status="produto.status" /></td>
-            <td>
-              <div class="table-actions">
-                <v-btn
-                  icon="mdi-information-outline"
-                  size="small"
-                  variant="text"
-                  title="Inspecionar produto"
-                  @click="inspectProduct(produto)"
-                />
-                <v-btn
-                  icon="mdi-package-variant-closed"
-                  size="small"
-                  variant="text"
-                  title="Visualizar lotes"
-                  @click="openLots(produto)"
-                />
-                <v-btn
-                  :to="`/produtos/${produto.id}/editar`"
-                  icon="mdi-pencil-outline"
-                  size="small"
-                  variant="text"
-                  title="Editar"
-                />
-                <v-btn
-                  icon="mdi-delete-outline"
-                  size="small"
-                  variant="text"
-                  color="error"
-                  title="Excluir"
-                  @click="remove(produto)"
-                />
-              </div>
-            </td>
-          </tr>
-          <EmptyTableRow v-if="!loading && items.length === 0" :columns="6" message="Nenhum produto encontrado." />
-        </tbody>
-      </v-table>
-      <v-divider />
-      <PaginationControls v-model="page" :pages="pages" :total="total" />
+      <v-data-table-server
+        v-model:page="page"
+        v-model:items-per-page="size"
+        :headers="headers"
+        :items="items"
+        :items-length="total"
+        :loading="loading"
+        :items-per-page-options="pageSizeOptions"
+        items-per-page-text="Itens por página:"
+        @update:options="onOptionsUpdate"
+      >
+        <template #item.nome="{ item }">
+          <div class="font-weight-medium">{{ item.nome }}</div>
+          <div class="text-caption text-medium-emphasis">{{ item.codigo }}</div>
+        </template>
+
+        <template #item.preco="{ item }">
+          {{ formatCurrency(item.preco) }}
+        </template>
+
+        <template #item.quantidade_estoque="{ item }">
+          {{ formatQuantity(item.quantidade_estoque) }}
+        </template>
+
+        <template #item.total_lotes="{ item }">
+          <v-chip size="small" variant="tonal" :color="item.total_lotes > 0 ? 'primary' : 'grey'">
+            {{ item.total_lotes }} {{ item.total_lotes === 1 ? 'lote' : 'lotes' }}
+          </v-chip>
+        </template>
+
+        <template #item.status="{ item }">
+          <ProductStatusChip :status="item.status" />
+        </template>
+
+        <template #item.actions="{ item }">
+          <div class="d-flex align-center justify-end ga-1">
+            <v-btn
+              icon="mdi-information-outline"
+              size="small"
+              variant="text"
+              title="Inspecionar produto"
+              @click="inspectProduct(item)"
+            />
+            <v-btn
+              icon="mdi-package-variant-closed"
+              size="small"
+              variant="text"
+              title="Visualizar lotes"
+              @click="openLots(item)"
+            />
+            <v-btn
+              :to="`/produtos/${item.id}/editar`"
+              icon="mdi-pencil-outline"
+              size="small"
+              variant="text"
+              title="Editar"
+            />
+            <v-btn
+              icon="mdi-delete-outline"
+              size="small"
+              variant="text"
+              color="error"
+              title="Excluir"
+              @click="remove(item)"
+            />
+          </div>
+        </template>
+
+        <template #no-data>
+          <div class="pa-4 text-center text-medium-emphasis">
+            Nenhum produto encontrado.
+          </div>
+        </template>
+      </v-data-table-server>
     </v-card>
 
     <v-dialog v-model="lotDialog" max-width="1180">
