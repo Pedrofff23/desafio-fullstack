@@ -1,83 +1,83 @@
 <script lang="ts">
-import { defineComponent, type PropType } from 'vue'
+import { defineComponent, type PropType } from 'vue';
 
-import { geoApi } from '@/api/geo'
-import type { Cidade, EnderecoInput, Estado } from '@/types/api'
-import { getErrorMessage } from '@/utils/errors'
-import { formatCepInput } from '@/utils/formatters'
+import { geoApi } from '@/api/geo';
+import type { Cidade, EnderecoInput, Estado } from '@/types/api';
+import { getErrorMessage } from '@/utils/errors';
+import { formatCepInput } from '@/utils/formatters';
 
 export default defineComponent({
   name: 'AddressFields',
   props: {
     modelValue: {
       type: Object as PropType<EnderecoInput>,
-      required: true,
-    },
+      required: true
+    }
   },
   emits: ['update:modelValue'],
   data() {
     return {
       localAddress: {
         ...this.modelValue,
-        cep: formatCepInput(this.modelValue.cep),
+        cep: formatCepInput(this.modelValue.cep)
       } as EnderecoInput,
       estados: [] as Estado[],
       cidades: [] as Cidade[],
       loadingStates: false,
       loadingCities: false,
-      error: '',
-    }
+      error: ''
+    };
   },
   watch: {
     modelValue: {
       deep: true,
       handler(value: EnderecoInput) {
         if (JSON.stringify(value) !== JSON.stringify(this.localAddress)) {
-          this.localAddress = { ...value, cep: formatCepInput(value.cep) }
+          this.localAddress = { ...value, cep: formatCepInput(value.cep) };
         }
-      },
+      }
     },
     localAddress: {
       deep: true,
       handler(value: EnderecoInput) {
-        this.$emit('update:modelValue', { ...value })
-      },
+        this.$emit('update:modelValue', { ...value });
+      }
     },
     'localAddress.estado_id'(value: number | null, previous: number | null) {
       if (value !== previous) {
-        this.localAddress.cidade_id = null
-        if (value) void this.loadCities(value)
-        else this.cidades = []
+        this.localAddress.cidade_id = null;
+        if (value) void this.loadCities(value);
+        else this.cidades = [];
       }
-    },
+    }
   },
   async mounted() {
-    this.loadingStates = true
+    this.loadingStates = true;
     try {
-      this.estados = await geoApi.estados()
-      if (this.localAddress.estado_id) await this.loadCities(this.localAddress.estado_id)
+      this.estados = await geoApi.estados();
+      if (this.localAddress.estado_id) await this.loadCities(this.localAddress.estado_id);
     } catch (error) {
-      this.error = getErrorMessage(error)
+      this.error = getErrorMessage(error);
     } finally {
-      this.loadingStates = false
+      this.loadingStates = false;
     }
   },
   methods: {
     async loadCities(estadoId: number) {
-      this.loadingCities = true
+      this.loadingCities = true;
       try {
-        this.cidades = await geoApi.cidades(estadoId)
+        this.cidades = await geoApi.cidades(estadoId);
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       } finally {
-        this.loadingCities = false
+        this.loadingCities = false;
       }
     },
     normalizeCep() {
-      this.localAddress.cep = formatCepInput(this.localAddress.cep)
-    },
-  },
-})
+      this.localAddress.cep = formatCepInput(this.localAddress.cep);
+    }
+  }
+});
 </script>
 
 <template>
@@ -119,20 +119,10 @@ export default defineComponent({
       />
     </v-col>
     <v-col cols="12" md="4">
-      <v-text-field
-        v-model="localAddress.numero"
-        label="Número"
-        required
-        :rules="[(v) => !!v || 'Número é obrigatório']"
-      />
+      <v-text-field v-model="localAddress.numero" label="Número" required :rules="[(v) => !!v || 'Número é obrigatório']" />
     </v-col>
     <v-col cols="12" md="6">
-      <v-text-field
-        v-model="localAddress.bairro"
-        label="Bairro"
-        required
-        :rules="[(v) => !!v || 'Bairro é obrigatório']"
-      />
+      <v-text-field v-model="localAddress.bairro" label="Bairro" required :rules="[(v) => !!v || 'Bairro é obrigatório']" />
     </v-col>
     <v-col cols="12" md="6">
       <v-text-field

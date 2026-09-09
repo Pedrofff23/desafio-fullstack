@@ -1,12 +1,12 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'ActiveStatusChip',
   props: {
-    active: { type: Boolean, required: true },
-  },
-})
+    active: { type: Boolean, required: true }
+  }
+});
 </script>
 
 <template>

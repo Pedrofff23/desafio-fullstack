@@ -1,15 +1,15 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'PaginationControls',
   props: {
     modelValue: { type: Number, required: true },
     pages: { type: Number, required: true },
-    total: { type: Number, required: true },
+    total: { type: Number, required: true }
   },
-  emits: ['update:modelValue'],
-})
+  emits: ['update:modelValue']
+});
 </script>
 
 <template>

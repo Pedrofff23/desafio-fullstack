@@ -1,7 +1,7 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router';
 
-import AppLayout from '@/layouts/AppLayout.vue'
-import { TOKEN_STORAGE_KEY } from '@/utils/storage'
+import AppLayout from '@/layouts/AppLayout.vue';
+import { TOKEN_STORAGE_KEY } from '@/utils/storage';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -10,7 +10,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
-      meta: { public: true },
+      meta: { public: true }
     },
     {
       path: '/',
@@ -22,62 +22,62 @@ const router = createRouter({
         {
           path: 'usuarios/novo',
           name: 'usuario-novo',
-          component: () => import('@/views/UsuarioFormView.vue'),
+          component: () => import('@/views/UsuarioFormView.vue')
         },
         {
           path: 'usuarios/:id/editar',
           name: 'usuario-editar',
-          component: () => import('@/views/UsuarioFormView.vue'),
+          component: () => import('@/views/UsuarioFormView.vue')
         },
         { path: 'produtos', name: 'produtos', component: () => import('@/views/ProdutosView.vue') },
         {
           path: 'produtos/novo',
           name: 'produto-novo',
-          component: () => import('@/views/ProdutoFormView.vue'),
+          component: () => import('@/views/ProdutoFormView.vue')
         },
         {
           path: 'produtos/:id/editar',
           name: 'produto-editar',
-          component: () => import('@/views/ProdutoFormView.vue'),
+          component: () => import('@/views/ProdutoFormView.vue')
         },
         {
           path: 'fornecedores',
           name: 'fornecedores',
-          component: () => import('@/views/FornecedoresView.vue'),
+          component: () => import('@/views/FornecedoresView.vue')
         },
         {
           path: 'movimentacoes/entrada',
           name: 'entrada',
-          component: () => import('@/views/EntradaView.vue'),
+          component: () => import('@/views/EntradaView.vue')
         },
         {
           path: 'movimentacoes/saida',
           name: 'saida',
-          component: () => import('@/views/SaidaView.vue'),
+          component: () => import('@/views/SaidaView.vue')
         },
         {
           path: 'movimentacoes/historico',
           name: 'historico',
-          component: () => import('@/views/HistoricoView.vue'),
-        },
-      ],
+          component: () => import('@/views/HistoricoView.vue')
+        }
+      ]
     },
     {
       path: '/:pathMatch(.*)*',
       name: 'nao-encontrada',
       component: () => import('@/views/NotFoundView.vue'),
-      meta: { public: true },
-    },
-  ],
-})
+      meta: { public: true }
+    }
+  ]
+});
 
 router.beforeEach((to) => {
-  const authenticated = Boolean(localStorage.getItem(TOKEN_STORAGE_KEY))
+  const authenticated = Boolean(localStorage.getItem(TOKEN_STORAGE_KEY));
   if (!to.meta.public && !authenticated) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+    return { name: 'login', query: { redirect: to.fullPath } };
   }
-  if (to.name === 'login' && authenticated) return { name: 'estoque' }
-  return true
-})
+  if (to.name === 'login' && authenticated) return { name: 'estoque' };
+  return true;
+});
 
-export default router
+export default router;

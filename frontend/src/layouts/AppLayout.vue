@@ -1,8 +1,8 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-import { mapStores } from 'pinia'
+import { defineComponent } from 'vue';
+import { mapStores } from 'pinia';
 
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/auth';
 
 export default defineComponent({
   name: 'AppLayout',
@@ -16,23 +16,23 @@ export default defineComponent({
         { title: 'Fornecedores', icon: 'mdi-truck-outline', to: '/fornecedores' },
         { title: 'Registrar entrada', icon: 'mdi-package-down', to: '/movimentacoes/entrada' },
         { title: 'Registrar saída', icon: 'mdi-package-up', to: '/movimentacoes/saida' },
-        { title: 'Histórico', icon: 'mdi-history', to: '/movimentacoes/historico' },
-      ],
-    }
+        { title: 'Histórico', icon: 'mdi-history', to: '/movimentacoes/historico' }
+      ]
+    };
   },
   computed: {
-    ...mapStores(useAuthStore),
+    ...mapStores(useAuthStore)
   },
   mounted() {
-    void this.authStore.restaurarSessao()
+    void this.authStore.restaurarSessao();
   },
   methods: {
     logout() {
-      this.authStore.sair()
-      void this.$router.replace('/login')
-    },
-  },
-})
+      this.authStore.sair();
+      void this.$router.replace('/login');
+    }
+  }
+});
 </script>
 
 <template>

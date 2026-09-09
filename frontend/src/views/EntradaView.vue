@@ -1,21 +1,13 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent } from 'vue';
 
-import { listAllPages } from '@/api/pagination'
-import { produtosApi } from '@/api/produtos'
-import { transacoesApi } from '@/api/transacoes'
-import PageHeader from '@/components/PageHeader.vue'
-import type {
-  CatalogoProduto,
-  Fornecedor,
-  Localizacao,
-  Lote,
-  LoteInput,
-  Produto,
-  RegistroEntradaCreate,
-} from '@/types/api'
-import { getErrorMessage } from '@/utils/errors'
-import { toIsoDateTime } from '@/utils/formatters'
+import { listAllPages } from '@/api/pagination';
+import { produtosApi } from '@/api/produtos';
+import { transacoesApi } from '@/api/transacoes';
+import PageHeader from '@/components/PageHeader.vue';
+import type { CatalogoProduto, Fornecedor, Localizacao, Lote, LoteInput, Produto, RegistroEntradaCreate } from '@/types/api';
+import { getErrorMessage } from '@/utils/errors';
+import { toIsoDateTime } from '@/utils/formatters';
 
 function emptyForm(): RegistroEntradaCreate {
   return {
@@ -26,8 +18,8 @@ function emptyForm(): RegistroEntradaCreate {
     data_entrada: null,
     tipo_entrada: 'compra',
     observacao: null,
-    preco_custo: 0,
-  }
+    preco_custo: 0
+  };
 }
 
 function emptyLotForm(): LoteInput {
@@ -35,8 +27,8 @@ function emptyLotForm(): LoteInput {
     numero_lote: '',
     data_producao: new Date().toISOString().slice(0, 10),
     data_validade: null,
-    ativo: true,
-  }
+    ativo: true
+  };
 }
 
 export default defineComponent({
@@ -52,7 +44,7 @@ export default defineComponent({
         categorias: [],
         localizacoes: [],
         ingredientes: [],
-        alergenos: [],
+        alergenos: []
       } as CatalogoProduto,
       productId: null as number | null,
       form: emptyForm(),
@@ -65,147 +57,129 @@ export default defineComponent({
       newLotDialog: false,
       newLotLoading: false,
       newLotError: '',
-      newLotForm: emptyLotForm(),
-    }
+      newLotForm: emptyLotForm()
+    };
   },
   computed: {
     selectedProduct(): Produto | undefined {
-      return this.products.find((p) => p.id === this.productId)
-    },
+      return this.products.find((p) => p.id === this.productId);
+    }
   },
   watch: {
     productId(value: number | null) {
-      this.form.lote_id = null
+      this.form.lote_id = null;
       if (value) {
-        const product = this.products.find((p) => p.id === value)
+        const product = this.products.find((p) => p.id === value);
         if (product) {
-          this.form.preco_custo = product.preco
+          this.form.preco_custo = product.preco;
         }
-        void this.loadLots(value)
+        void this.loadLots(value);
       } else {
-        this.lots = []
-        this.form.preco_custo = 0
+        this.lots = [];
+        this.form.preco_custo = 0;
       }
-    },
+    }
   },
   async mounted() {
     try {
       const [products, suppliers, catalog] = await Promise.all([
         listAllPages(produtosApi.listar),
         transacoesApi.fornecedores(),
-        produtosApi.catalogo(),
-      ])
-      this.products = products.filter((item) => item.ativo)
-      this.suppliers = suppliers.filter((item) => item.ativo)
-      this.catalog = catalog
+        produtosApi.catalogo()
+      ]);
+      this.products = products.filter((item) => item.ativo);
+      this.suppliers = suppliers.filter((item) => item.ativo);
+      this.catalog = catalog;
     } catch (error) {
-      this.error = getErrorMessage(error)
+      this.error = getErrorMessage(error);
     } finally {
-      this.loading = false
+      this.loading = false;
     }
   },
   methods: {
     locationLabel(location: Localizacao): string {
-      const level = location.nivel ? ` / Nível ${location.nivel}` : ''
-      return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}`
+      const level = location.nivel ? ` / Nível ${location.nivel}` : '';
+      return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}`;
     },
     async loadLots(productId: number) {
-      this.loadingLots = true
+      this.loadingLots = true;
       try {
-        this.lots = (await produtosApi.listarLotes(productId)).filter((item) => item.ativo)
+        this.lots = (await produtosApi.listarLotes(productId)).filter((item) => item.ativo);
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       } finally {
-        this.loadingLots = false
+        this.loadingLots = false;
       }
     },
     openNewLotDialog() {
-      if (!this.productId) return
-      this.newLotForm = emptyLotForm()
-      this.newLotError = ''
-      this.newLotDialog = true
+      if (!this.productId) return;
+      this.newLotForm = emptyLotForm();
+      this.newLotError = '';
+      this.newLotDialog = true;
     },
     async createNewLot() {
-      if (
-        !this.productId ||
-        !this.newLotForm.numero_lote.trim() ||
-        !this.newLotForm.data_producao
-      ) {
-        this.newLotError = 'Informe o número e a data de produção do lote.'
-        return
+      if (!this.productId || !this.newLotForm.numero_lote.trim() || !this.newLotForm.data_producao) {
+        this.newLotError = 'Informe o número e a data de produção do lote.';
+        return;
       }
       if (this.selectedProduct?.perecivel && !this.newLotForm.data_validade) {
-        this.newLotError = 'Produtos perecíveis exigem data de validade.'
-        return
+        this.newLotError = 'Produtos perecíveis exigem data de validade.';
+        return;
       }
-      this.newLotLoading = true
-      this.newLotError = ''
+      this.newLotLoading = true;
+      this.newLotError = '';
       try {
         const created = await produtosApi.createLote(this.productId, {
           ...this.newLotForm,
-          numero_lote: this.newLotForm.numero_lote.trim(),
-        })
-        await this.loadLots(this.productId)
-        this.form.lote_id = created.id
-        this.newLotDialog = false
-        this.success = `Lote "${created.numero_lote}" cadastrado e selecionado com sucesso.`
+          numero_lote: this.newLotForm.numero_lote.trim()
+        });
+        await this.loadLots(this.productId);
+        this.form.lote_id = created.id;
+        this.newLotDialog = false;
+        this.success = `Lote "${created.numero_lote}" cadastrado e selecionado com sucesso.`;
       } catch (error) {
-        this.newLotError = getErrorMessage(error)
+        this.newLotError = getErrorMessage(error);
       } finally {
-        this.newLotLoading = false
+        this.newLotLoading = false;
       }
     },
     async submit() {
-      this.error = ''
-      this.success = ''
-      if (
-        !this.productId ||
-        !this.form.lote_id ||
-        !this.form.fornecedor_id ||
-        this.form.quantidade <= 0
-      ) {
-        this.error = 'Selecione produto, lote e fornecedor e informe uma quantidade válida.'
-        return
+      this.error = '';
+      this.success = '';
+      if (!this.productId || !this.form.lote_id || !this.form.fornecedor_id || this.form.quantidade <= 0) {
+        this.error = 'Selecione produto, lote e fornecedor e informe uma quantidade válida.';
+        return;
       }
-      this.saving = true
+      this.saving = true;
       try {
         await transacoesApi.registrarEntrada({
           ...this.form,
           quantidade: Number(this.form.quantidade),
           preco_custo: Number(this.form.preco_custo),
           data_entrada: toIsoDateTime(this.transactionDate),
-          observacao: this.form.observacao || null,
-        })
-        this.form = emptyForm()
-        this.productId = null
-        this.transactionDate = ''
-        this.success = 'Entrada registrada com sucesso.'
+          observacao: this.form.observacao || null
+        });
+        this.form = emptyForm();
+        this.productId = null;
+        this.transactionDate = '';
+        this.success = 'Entrada registrada com sucesso.';
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       } finally {
-        this.saving = false
+        this.saving = false;
       }
-    },
-  },
-})
+    }
+  }
+});
 </script>
 
 <template>
   <div>
-    <PageHeader
-      title="Registrar entrada"
-      subtitle="Adicione itens ao estoque com origem, lote e custo rastreáveis."
-    />
+    <PageHeader title="Registrar entrada" subtitle="Adicione itens ao estoque com origem, lote e custo rastreáveis." />
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
-    <v-alert
-      v-if="success"
-      type="success"
-      variant="tonal"
-      closable
-      class="mb-4"
-      @click:close="success = ''"
-      >{{ success }}</v-alert
-    >
+    <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
+      {{ success }}
+    </v-alert>
     <v-progress-linear v-if="loading" color="primary" indeterminate />
     <v-card v-else class="data-card pa-5 pa-md-7">
       <v-form @submit.prevent="submit">
@@ -256,11 +230,7 @@ export default defineComponent({
               class="mt-2"
             >
               Nenhum lote cadastrado para este produto.
-              <a
-                href="javascript:void(0)"
-                class="font-weight-bold ml-1 text-decoration-underline"
-                @click="openNewLotDialog"
-              >
+              <a href="javascript:void(0)" class="font-weight-bold ml-1 text-decoration-underline" @click="openNewLotDialog">
                 Cadastrar lote agora
               </a>
             </v-alert>
@@ -300,11 +270,7 @@ export default defineComponent({
             />
           </v-col>
           <v-col cols="12" md="3">
-            <v-text-field
-              v-model="transactionDate"
-              type="datetime-local"
-              label="Data e hora (opcional)"
-            />
+            <v-text-field v-model="transactionDate" type="datetime-local" label="Data e hora (opcional)" />
           </v-col>
           <v-col cols="12" md="3">
             <v-text-field
@@ -326,15 +292,11 @@ export default defineComponent({
               :rules="[(v) => (v !== null && v !== '' && v !== undefined) || 'Preço de custo é obrigatório']"
             />
           </v-col>
-          <v-col cols="12" md="9"
-            ><v-textarea v-model="form.observacao" label="Observação" rows="2" maxlength="500"
-          /></v-col>
+          <v-col cols="12" md="9"><v-textarea v-model="form.observacao" label="Observação" rows="2" maxlength="500" /></v-col>
         </v-row>
         <div class="form-actions">
           <v-btn variant="text" to="/estoque">Cancelar</v-btn>
-          <v-btn color="primary" prepend-icon="mdi-package-down" type="submit" :loading="saving">
-            Registrar entrada
-          </v-btn>
+          <v-btn color="primary" prepend-icon="mdi-package-down" type="submit" :loading="saving">Registrar entrada</v-btn>
         </div>
       </v-form>
     </v-card>
@@ -354,13 +316,7 @@ export default defineComponent({
             {{ newLotError }}
           </v-alert>
 
-          <v-alert
-            v-if="selectedProduct?.perecivel"
-            type="warning"
-            variant="tonal"
-            density="compact"
-            class="mb-4"
-          >
+          <v-alert v-if="selectedProduct?.perecivel" type="warning" variant="tonal" density="compact" class="mb-4">
             Este produto é perecível. A data de validade é obrigatória.
           </v-alert>
 
@@ -395,15 +351,8 @@ export default defineComponent({
         </v-card-text>
         <v-card-actions class="pa-5 pt-0">
           <v-spacer />
-          <v-btn variant="text" :disabled="newLotLoading" @click="newLotDialog = false">
-            Cancelar
-          </v-btn>
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-check"
-            :loading="newLotLoading"
-            @click="createNewLot"
-          >
+          <v-btn variant="text" :disabled="newLotLoading" @click="newLotDialog = false">Cancelar</v-btn>
+          <v-btn color="primary" prepend-icon="mdi-check" :loading="newLotLoading" @click="createNewLot">
             Cadastrar e selecionar
           </v-btn>
         </v-card-actions>

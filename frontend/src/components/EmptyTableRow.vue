@@ -1,13 +1,13 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'EmptyTableRow',
   props: {
     columns: { type: Number, required: true },
-    message: { type: String, required: true },
-  },
-})
+    message: { type: String, required: true }
+  }
+});
 </script>
 
 <template>

@@ -1,0 +1,34 @@
+
+.DS_Store
+dist
+node_modules
+public
+src/assets
+src/fonts
+src/locales
+src/plugins
+src/sass
+src/scss
+package.json
+package-lock.json
+README.md
+
+# Arquivos de ambiente local
+.env
+.env.local
+.env.*.local
+
+# Arquivos de log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Arquivos e diretórios do editor
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,19 +1,19 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent } from 'vue';
 
-import { produtosApi } from '@/api/produtos'
-import { transacoesApi } from '@/api/transacoes'
-import ActiveStatusChip from '@/components/ActiveStatusChip.vue'
-import EmptyTableRow from '@/components/EmptyTableRow.vue'
-import LotExpirationChip from '@/components/LotExpirationChip.vue'
-import PageHeader from '@/components/PageHeader.vue'
-import PaginationControls from '@/components/PaginationControls.vue'
-import ProductInspectionDialog from '@/components/ProductInspectionDialog.vue'
-import type { CatalogoProduto, EstoqueProduto, Lote, LoteValidadeStatus, Produto } from '@/types/api'
-import { getErrorMessage } from '@/utils/errors'
-import { formatDate, formatQuantity } from '@/utils/formatters'
+import { produtosApi } from '@/api/produtos';
+import { transacoesApi } from '@/api/transacoes';
+import ActiveStatusChip from '@/components/ActiveStatusChip.vue';
+import EmptyTableRow from '@/components/EmptyTableRow.vue';
+import LotExpirationChip from '@/components/LotExpirationChip.vue';
+import PageHeader from '@/components/PageHeader.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
+import ProductInspectionDialog from '@/components/ProductInspectionDialog.vue';
+import type { CatalogoProduto, EstoqueProduto, Lote, LoteValidadeStatus, Produto } from '@/types/api';
+import { getErrorMessage } from '@/utils/errors';
+import { formatDate, formatQuantity } from '@/utils/formatters';
 
-type LotFilter = 'todos' | 'com_estoque' | LoteValidadeStatus
+type LotFilter = 'todos' | 'com_estoque' | LoteValidadeStatus;
 
 export default defineComponent({
   name: 'EstoqueView',
@@ -23,7 +23,7 @@ export default defineComponent({
     LotExpirationChip,
     PageHeader,
     PaginationControls,
-    ProductInspectionDialog,
+    ProductInspectionDialog
   },
   data() {
     return {
@@ -43,142 +43,132 @@ export default defineComponent({
         { label: 'Todos', value: 'todos' },
         { label: 'Com estoque', value: 'com_estoque' },
         { label: 'Próximos do vencimento', value: 'validade_proxima' },
-        { label: 'Vencidos', value: 'vencido' },
+        { label: 'Vencidos', value: 'vencido' }
       ] as Array<{ label: string; value: LotFilter }>,
       lotPage: 1,
       lotSize: 10,
       inspectDialog: false,
       inspectedProduct: null as Produto | null,
       inspectCatalog: null as CatalogoProduto | null,
-      inspectLoading: false,
-    }
+      inspectLoading: false
+    };
   },
   computed: {
     filteredLots(): Lote[] {
-      if (this.lotFilter === 'todos') return this.lots
+      if (this.lotFilter === 'todos') return this.lots;
       if (this.lotFilter === 'com_estoque') {
-        return this.lots.filter((lot) => lot.status_estoque === 'com_estoque')
+        return this.lots.filter((lot) => lot.status_estoque === 'com_estoque');
       }
-      return this.lots.filter(
-        (lot) => lot.quantidade_estoque > 0 && lot.status_validade === this.lotFilter,
-      )
+      return this.lots.filter((lot) => lot.quantidade_estoque > 0 && lot.status_validade === this.lotFilter);
     },
     lotTotal(): number {
-      return this.filteredLots.length
+      return this.filteredLots.length;
     },
     lotPages(): number {
-      return Math.ceil(this.lotTotal / this.lotSize) || 1
+      return Math.ceil(this.lotTotal / this.lotSize) || 1;
     },
     paginatedLots(): Lote[] {
-      const start = (this.lotPage - 1) * this.lotSize
-      return this.filteredLots.slice(start, start + this.lotSize)
-    },
+      const start = (this.lotPage - 1) * this.lotSize;
+      return this.filteredLots.slice(start, start + this.lotSize);
+    }
   },
   watch: {
     page() {
-      void this.load()
+      void this.load();
     },
     lotFilter() {
-      this.lotPage = 1
-    },
+      this.lotPage = 1;
+    }
   },
   mounted() {
-    void this.load()
+    void this.load();
   },
   methods: {
     formatDate,
     formatQuantity,
     lotRowClass(lot: Lote): string {
-      if (lot.status_estoque === 'sem_estoque') return 'lot-row--empty'
-      if (lot.status_validade === 'vencido') return 'lot-row--expired'
-      if (lot.status_validade === 'validade_proxima') return 'lot-row--expiring'
-      return ''
+      if (lot.status_estoque === 'sem_estoque') return 'lot-row--empty';
+      if (lot.status_validade === 'vencido') return 'lot-row--expired';
+      if (lot.status_validade === 'validade_proxima') return 'lot-row--expiring';
+      return '';
     },
     expirationDays(lot: Lote): string {
-      if (lot.quantidade_estoque <= 0) return '—'
-      if (lot.dias_para_vencer === null) return '—'
+      if (lot.quantidade_estoque <= 0) return '—';
+      if (lot.dias_para_vencer === null) return '—';
       if (lot.dias_para_vencer < 0) {
-        const days = Math.abs(lot.dias_para_vencer)
-        return `Vencido há ${days} ${days === 1 ? 'dia' : 'dias'}`
+        const days = Math.abs(lot.dias_para_vencer);
+        return `Vencido há ${days} ${days === 1 ? 'dia' : 'dias'}`;
       }
-      if (lot.dias_para_vencer === 0) return 'Vence hoje'
-      return `${lot.dias_para_vencer} ${lot.dias_para_vencer === 1 ? 'dia' : 'dias'}`
+      if (lot.dias_para_vencer === 0) return 'Vence hoje';
+      return `${lot.dias_para_vencer} ${lot.dias_para_vencer === 1 ? 'dia' : 'dias'}`;
     },
     lotLocations(lot: Lote): string {
-      if (lot.localizacoes.length === 0) return 'Sem estoque localizado'
+      if (lot.localizacoes.length === 0) return 'Sem estoque localizado';
       return lot.localizacoes
         .map((location) => {
-          const level = location.nivel ? ` / Nível ${location.nivel}` : ''
-          const description = location.descricao ? ` · ${location.descricao}` : ''
-          return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}${description} (${formatQuantity(location.quantidade)})`
+          const level = location.nivel ? ` / Nível ${location.nivel}` : '';
+          const description = location.descricao ? ` · ${location.descricao}` : '';
+          return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}${description} (${formatQuantity(location.quantidade)})`;
         })
-        .join('; ')
+        .join('; ');
     },
     async openLots(item: EstoqueProduto) {
-      this.selectedProduct = item
-      this.lots = []
-      this.lotFilter = 'todos'
-      this.lotPage = 1
-      this.lotDialog = true
-      await this.loadLots()
+      this.selectedProduct = item;
+      this.lots = [];
+      this.lotFilter = 'todos';
+      this.lotPage = 1;
+      this.lotDialog = true;
+      await this.loadLots();
     },
     async inspectProduct(item: EstoqueProduto) {
-      this.inspectDialog = true
-      this.inspectLoading = true
+      this.inspectDialog = true;
+      this.inspectLoading = true;
       try {
-        const [detail, catalog] = await Promise.all([
-          produtosApi.get(item.produto_id),
-          produtosApi.catalogo(),
-        ])
-        this.inspectedProduct = detail
-        this.inspectCatalog = catalog
+        const [detail, catalog] = await Promise.all([produtosApi.get(item.produto_id), produtosApi.catalogo()]);
+        this.inspectedProduct = detail;
+        this.inspectCatalog = catalog;
       } catch (error) {
-        this.error = getErrorMessage(error)
-        this.inspectDialog = false
+        this.error = getErrorMessage(error);
+        this.inspectDialog = false;
       } finally {
-        this.inspectLoading = false
+        this.inspectLoading = false;
       }
     },
     async loadLots() {
-      if (!this.selectedProduct) return
-      this.lotLoading = true
-      this.error = ''
+      if (!this.selectedProduct) return;
+      this.lotLoading = true;
+      this.error = '';
       try {
-        this.lots = await produtosApi.listarLotes(this.selectedProduct.produto_id)
+        this.lots = await produtosApi.listarLotes(this.selectedProduct.produto_id);
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       } finally {
-        this.lotLoading = false
+        this.lotLoading = false;
       }
     },
     async load() {
-      this.loading = true
-      this.error = ''
+      this.loading = true;
+      this.error = '';
       try {
-        const response = await transacoesApi.estoque(this.page, this.size)
-        this.items = response.items
-        this.pages = response.pages
-        this.total = response.total
+        const response = await transacoesApi.estoque(this.page, this.size);
+        this.items = response.items;
+        this.pages = response.pages;
+        this.total = response.total;
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       } finally {
-        this.loading = false
+        this.loading = false;
       }
-    },
-  },
-})
+    }
+  }
+});
 </script>
 
 <template>
   <div>
-    <PageHeader
-      title="Estoque atual"
-      subtitle="Saldo consolidado dos produtos e inspeção completa dos seus lotes."
-    >
+    <PageHeader title="Estoque atual" subtitle="Saldo consolidado dos produtos e inspeção completa dos seus lotes.">
       <template #actions>
-        <v-btn color="primary" prepend-icon="mdi-refresh" :loading="loading" @click="load">
-          Atualizar
-        </v-btn>
+        <v-btn color="primary" prepend-icon="mdi-refresh" :loading="loading" @click="load">Atualizar</v-btn>
       </template>
     </PageHeader>
 
@@ -223,11 +213,7 @@ export default defineComponent({
               </v-chip>
             </td>
             <td class="text-center">
-              <v-chip
-                size="small"
-                variant="tonal"
-                :color="item.total_lotes > 0 ? 'primary' : 'grey'"
-              >
+              <v-chip size="small" variant="tonal" :color="item.total_lotes > 0 ? 'primary' : 'grey'">
                 {{ item.total_lotes }} {{ item.total_lotes === 1 ? 'lote' : 'lotes' }}
               </v-chip>
             </td>
@@ -263,13 +249,7 @@ export default defineComponent({
                     Em dia
                   </v-chip>
                 </template>
-                <v-chip
-                  v-else
-                  color="grey"
-                  size="small"
-                  variant="tonal"
-                  prepend-icon="mdi-package-variant-remove"
-                >
+                <v-chip v-else color="grey" size="small" variant="tonal" prepend-icon="mdi-package-variant-remove">
                   Sem estoque
                 </v-chip>
               </div>
@@ -282,21 +262,12 @@ export default defineComponent({
                 title="Inspecionar produto"
                 @click="inspectProduct(item)"
               />
-              <v-btn
-                prepend-icon="mdi-package-variant-closed"
-                size="small"
-                variant="tonal"
-                @click="openLots(item)"
-              >
+              <v-btn prepend-icon="mdi-package-variant-closed" size="small" variant="tonal" @click="openLots(item)">
                 Visualizar lotes
               </v-btn>
             </td>
           </tr>
-          <EmptyTableRow
-            v-if="!loading && items.length === 0"
-            :columns="5"
-            message="Nenhum produto cadastrado."
-          />
+          <EmptyTableRow v-if="!loading && items.length === 0" :columns="5" message="Nenhum produto cadastrado." />
         </tbody>
       </v-table>
       <v-divider />
@@ -319,14 +290,7 @@ export default defineComponent({
             </div>
           </div>
           <v-spacer />
-          <v-btn
-            icon="mdi-refresh"
-            size="small"
-            variant="text"
-            title="Atualizar lotes"
-            :loading="lotLoading"
-            @click="loadLots"
-          />
+          <v-btn icon="mdi-refresh" size="small" variant="text" title="Atualizar lotes" :loading="lotLoading" @click="loadLots" />
         </v-card-title>
         <v-card-text>
           <v-progress-linear v-if="lotLoading" color="primary" indeterminate class="mb-4" />
@@ -373,11 +337,7 @@ export default defineComponent({
                 <td>{{ expirationDays(lot) }}</td>
                 <td>{{ formatQuantity(lot.quantidade_estoque) }}</td>
                 <td>
-                  <v-chip
-                    :color="lot.status_estoque === 'com_estoque' ? 'primary' : 'grey'"
-                    size="small"
-                    variant="tonal"
-                  >
+                  <v-chip :color="lot.status_estoque === 'com_estoque' ? 'primary' : 'grey'" size="small" variant="tonal">
                     {{ lot.status_estoque === 'com_estoque' ? 'Com estoque' : 'Sem estoque' }}
                   </v-chip>
                 </td>
@@ -385,9 +345,7 @@ export default defineComponent({
                 <td><ActiveStatusChip :active="lot.ativo" /></td>
               </tr>
               <tr v-if="!lotLoading && filteredLots.length === 0">
-                <td colspan="9" class="text-center text-medium-emphasis py-6">
-                  Nenhum lote encontrado para este filtro.
-                </td>
+                <td colspan="9" class="text-center text-medium-emphasis py-6">Nenhum lote encontrado para este filtro.</td>
               </tr>
             </tbody>
           </v-table>

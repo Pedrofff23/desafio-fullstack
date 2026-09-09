@@ -1,36 +1,36 @@
 <script lang="ts">
-import { defineComponent, type PropType } from 'vue'
+import { defineComponent, type PropType } from 'vue';
 
-import type { ContatoInput } from '@/types/api'
-import { formatPhoneInput, onlyDigits } from '@/utils/formatters'
+import type { ContatoInput } from '@/types/api';
+import { formatPhoneInput, onlyDigits } from '@/utils/formatters';
 
 export default defineComponent({
   name: 'ContactFields',
   props: {
     modelValue: {
       type: Object as PropType<ContatoInput>,
-      required: true,
-    },
+      required: true
+    }
   },
   emits: ['update:modelValue'],
   methods: {
     update(field: keyof ContatoInput, value: unknown) {
       this.$emit('update:modelValue', {
         ...this.modelValue,
-        [field]: String(value ?? ''),
-      })
+        [field]: String(value ?? '')
+      });
     },
     normalizeDdd() {
-      this.update('ddd', onlyDigits(this.modelValue.ddd).slice(0, 2))
+      this.update('ddd', onlyDigits(this.modelValue.ddd).slice(0, 2));
     },
     onPhoneInput(value: unknown) {
-      this.update('numero', formatPhoneInput(String(value ?? '')))
+      this.update('numero', formatPhoneInput(String(value ?? '')));
     },
     normalizePhone() {
-      this.update('numero', formatPhoneInput(this.modelValue.numero))
-    },
-  },
-})
+      this.update('numero', formatPhoneInput(this.modelValue.numero));
+    }
+  }
+});
 </script>
 
 <template>
@@ -68,10 +68,7 @@ export default defineComponent({
         hint="Ex.: 99999-9999 ou 4444-4444"
         persistent-hint
         required
-        :rules="[
-          (v) => !!v || 'Telefone é obrigatório',
-          (v) => !v || v.length >= 8 || 'Telefone deve ter pelo menos 8 dígitos',
-        ]"
+        :rules="[(v) => !!v || 'Telefone é obrigatório', (v) => !v || v.length >= 8 || 'Telefone deve ter pelo menos 8 dígitos']"
         @update:model-value="onPhoneInput"
         @blur="normalizePhone"
       />

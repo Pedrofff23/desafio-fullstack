@@ -1,16 +1,16 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent } from 'vue';
 
-import { listAllPages } from '@/api/pagination'
-import { produtosApi } from '@/api/produtos'
-import { transacoesApi } from '@/api/transacoes'
-import PageHeader from '@/components/PageHeader.vue'
-import type { EstoqueEntrada, Lote, Produto, RegistroSaidaCreate } from '@/types/api'
-import { getErrorMessage } from '@/utils/errors'
-import { formatQuantity, toIsoDateTime } from '@/utils/formatters'
+import { listAllPages } from '@/api/pagination';
+import { produtosApi } from '@/api/produtos';
+import { transacoesApi } from '@/api/transacoes';
+import PageHeader from '@/components/PageHeader.vue';
+import type { EstoqueEntrada, Lote, Produto, RegistroSaidaCreate } from '@/types/api';
+import { getErrorMessage } from '@/utils/errors';
+import { formatQuantity, toIsoDateTime } from '@/utils/formatters';
 
 function emptyForm(): RegistroSaidaCreate {
-  return { entrada_id: null, quantidade: 1, data_saida: null, tipo_saida: 'venda', preco_venda: 0 }
+  return { entrada_id: null, quantidade: 1, data_saida: null, tipo_saida: 'venda', preco_venda: 0 };
 }
 
 export default defineComponent({
@@ -28,108 +28,98 @@ export default defineComponent({
       loadingEntries: false,
       saving: false,
       error: '',
-      success: '',
-    }
+      success: ''
+    };
   },
   computed: {
     selectedEntry(): EstoqueEntrada | undefined {
-      return this.entries.find((item) => item.entrada_id === this.form.entrada_id)
-    },
+      return this.entries.find((item) => item.entrada_id === this.form.entrada_id);
+    }
   },
   watch: {
     productId(value: number | null) {
-      this.form.entrada_id = null
+      this.form.entrada_id = null;
       if (value) {
-        const product = this.products.find((item) => item.id === value)
-        if (product) this.form.preco_venda = product.preco
-        void this.loadEntries(value)
+        const product = this.products.find((item) => item.id === value);
+        if (product) this.form.preco_venda = product.preco;
+        void this.loadEntries(value);
       } else {
-        this.entries = []
-        this.lots = []
+        this.entries = [];
+        this.lots = [];
       }
-    },
+    }
   },
   async mounted() {
     try {
-      const products = await listAllPages(produtosApi.listar)
-      this.products = products.filter((item) => item.ativo && item.quantidade_estoque > 0)
+      const products = await listAllPages(produtosApi.listar);
+      this.products = products.filter((item) => item.ativo && item.quantidade_estoque > 0);
     } catch (error) {
-      this.error = getErrorMessage(error)
+      this.error = getErrorMessage(error);
     } finally {
-      this.loading = false
+      this.loading = false;
     }
   },
   methods: {
     formatQuantity,
     entryLabel(entry: EstoqueEntrada): string {
-      const lot = this.lots.find((item) => item.id === entry.lote_id)
-      return `Entrada #${entry.entrada_id} · Lote ${lot?.numero_lote ?? entry.lote_id} · Saldo ${formatQuantity(entry.quantidade)}`
+      const lot = this.lots.find((item) => item.id === entry.lote_id);
+      return `Entrada #${entry.entrada_id} · Lote ${lot?.numero_lote ?? entry.lote_id} · Saldo ${formatQuantity(entry.quantidade)}`;
     },
     async loadEntries(productId: number) {
-      this.loadingEntries = true
-      this.error = ''
+      this.loadingEntries = true;
+      this.error = '';
       try {
         const [entries, lots] = await Promise.all([
           transacoesApi.entradasDisponiveis(productId),
-          produtosApi.listarLotes(productId),
-        ])
-        this.entries = entries
-        this.lots = lots
+          produtosApi.listarLotes(productId)
+        ]);
+        this.entries = entries;
+        this.lots = lots;
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       } finally {
-        this.loadingEntries = false
+        this.loadingEntries = false;
       }
     },
     async submit() {
-      this.error = ''
-      this.success = ''
+      this.error = '';
+      this.success = '';
       if (!this.productId || !this.form.entrada_id || this.form.quantidade <= 0) {
-        this.error = 'Selecione o produto e a entrada e informe uma quantidade válida.'
-        return
+        this.error = 'Selecione o produto e a entrada e informe uma quantidade válida.';
+        return;
       }
       if (this.selectedEntry && this.form.quantidade > this.selectedEntry.quantidade) {
-        this.error = `Saldo insuficiente. Disponível: ${formatQuantity(this.selectedEntry.quantidade)}.`
-        return
+        this.error = `Saldo insuficiente. Disponível: ${formatQuantity(this.selectedEntry.quantidade)}.`;
+        return;
       }
-      this.saving = true
+      this.saving = true;
       try {
         await transacoesApi.registrarSaida({
           ...this.form,
           quantidade: Number(this.form.quantidade),
           preco_venda: Number(this.form.preco_venda),
-          data_saida: toIsoDateTime(this.transactionDate),
-        })
-        this.form = emptyForm()
-        this.productId = null
-        this.transactionDate = ''
-        this.success = 'Saída registrada com sucesso.'
+          data_saida: toIsoDateTime(this.transactionDate)
+        });
+        this.form = emptyForm();
+        this.productId = null;
+        this.transactionDate = '';
+        this.success = 'Saída registrada com sucesso.';
       } catch (error) {
-        this.error = getErrorMessage(error)
-        if (this.productId) await this.loadEntries(this.productId)
+        this.error = getErrorMessage(error);
+        if (this.productId) await this.loadEntries(this.productId);
       } finally {
-        this.saving = false
+        this.saving = false;
       }
-    },
-  },
-})
+    }
+  }
+});
 </script>
 
 <template>
   <div>
-    <PageHeader
-      title="Registrar saída"
-      subtitle="Retire itens de uma entrada que ainda possui saldo disponível."
-    />
+    <PageHeader title="Registrar saída" subtitle="Retire itens de uma entrada que ainda possui saldo disponível." />
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
-    <v-alert
-      v-if="success"
-      type="success"
-      variant="tonal"
-      closable
-      class="mb-4"
-      @click:close="success = ''"
-    >
+    <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
       {{ success }}
     </v-alert>
     <v-progress-linear v-if="loading" color="primary" indeterminate />
@@ -159,12 +149,8 @@ export default defineComponent({
               required
               :rules="[(v) => !!v || 'Entrada de origem é obrigatória']"
             />
-            <v-alert
-              v-if="productId && !loadingEntries && entries.length === 0"
-              type="warning"
-              variant="tonal"
-              density="compact"
-              >Nenhuma entrada com saldo disponível.
+            <v-alert v-if="productId && !loadingEntries && entries.length === 0" type="warning" variant="tonal" density="compact">
+              Nenhuma entrada com saldo disponível.
             </v-alert>
           </v-col>
           <v-col v-if="selectedEntry" cols="12">
@@ -186,11 +172,7 @@ export default defineComponent({
             />
           </v-col>
           <v-col cols="12" md="3">
-            <v-text-field
-              v-model="transactionDate"
-              type="datetime-local"
-              label="Data e hora (opcional)"
-            />
+            <v-text-field v-model="transactionDate" type="datetime-local" label="Data e hora (opcional)" />
           </v-col>
           <v-col cols="12" md="3">
             <v-text-field
@@ -215,9 +197,7 @@ export default defineComponent({
         </v-row>
         <div class="form-actions">
           <v-btn variant="text" to="/estoque">Cancelar</v-btn>
-          <v-btn color="primary" prepend-icon="mdi-package-up" type="submit" :loading="saving">
-            Registrar saída
-          </v-btn>
+          <v-btn color="primary" prepend-icon="mdi-package-up" type="submit" :loading="saving">Registrar saída</v-btn>
         </div>
       </v-form>
     </v-card>

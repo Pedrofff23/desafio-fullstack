@@ -1,21 +1,14 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent } from 'vue';
 
-import { produtosApi } from '@/api/produtos'
-import CurrencyField from '@/components/CurrencyField.vue'
-import PageHeader from '@/components/PageHeader.vue'
-import type {
-  CatalogoProduto,
-  Localizacao,
-  LoteInput,
-  NutrienteInput,
-  ProdutoCreate,
-  ProdutoUpdate,
-} from '@/types/api'
-import { getErrorMessage } from '@/utils/errors'
+import { produtosApi } from '@/api/produtos';
+import CurrencyField from '@/components/CurrencyField.vue';
+import PageHeader from '@/components/PageHeader.vue';
+import type { CatalogoProduto, Localizacao, LoteInput, NutrienteInput, ProdutoCreate, ProdutoUpdate } from '@/types/api';
+import { getErrorMessage } from '@/utils/errors';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  return new Date().toISOString().slice(0, 10);
 }
 
 function emptyCatalog(): CatalogoProduto {
@@ -24,12 +17,12 @@ function emptyCatalog(): CatalogoProduto {
     categorias: [],
     localizacoes: [],
     ingredientes: [],
-    alergenos: [],
-  }
+    alergenos: []
+  };
 }
 
 function emptyNutrient(): NutrienteInput {
-  return { nome: '', unidade: '', valor: 0 }
+  return { nome: '', unidade: '', valor: 0 };
 }
 
 export default defineComponent({
@@ -46,14 +39,14 @@ export default defineComponent({
         unidade_medida_id: null as number | null,
         categoria_id: null as number | null,
         localizacao_id: null as number | null,
-        ativo: true,
+        ativo: true
       },
       includeLot: false,
       lot: {
         numero_lote: '',
         data_producao: today(),
         data_validade: null,
-        ativo: true,
+        ativo: true
       } as LoteInput,
       nutrientes: [] as NutrienteInput[],
       ingredienteIds: [] as number[],
@@ -61,31 +54,31 @@ export default defineComponent({
       catalog: emptyCatalog(),
       loading: true,
       saving: false,
-      error: '',
-    }
+      error: ''
+    };
   },
   computed: {
     productId(): number | null {
-      const value = Number(this.$route.params.id)
-      return Number.isInteger(value) && value > 0 ? value : null
+      const value = Number(this.$route.params.id);
+      return Number.isInteger(value) && value > 0 ? value : null;
     },
     editing(): boolean {
-      return this.productId !== null
+      return this.productId !== null;
     },
     title(): string {
-      return this.editing ? 'Editar produto' : 'Novo produto'
-    },
+      return this.editing ? 'Editar produto' : 'Novo produto';
+    }
   },
   watch: {
     'form.perecivel'(value: boolean) {
-      if (value && !this.editing) this.includeLot = true
-    },
+      if (value && !this.editing) this.includeLot = true;
+    }
   },
   async mounted() {
     try {
-      this.catalog = await produtosApi.catalogo()
+      this.catalog = await produtosApi.catalogo();
       if (this.editing && this.productId) {
-        const product = await produtosApi.get(this.productId)
+        const product = await produtosApi.get(this.productId);
         this.form = {
           codigo: product.codigo,
           nome: product.nome,
@@ -95,46 +88,46 @@ export default defineComponent({
           unidade_medida_id: product.unidade_medida_id,
           categoria_id: product.categoria_id,
           localizacao_id: product.localizacao_id,
-          ativo: product.ativo,
-        }
+          ativo: product.ativo
+        };
         this.nutrientes = product.nutrientes.map(({ nome, unidade, valor }) => ({
           nome,
           unidade,
-          valor,
-        }))
+          valor
+        }));
         this.ingredienteIds = product.ingredientes
           .slice()
           .sort((a, b) => a.ordem - b.ordem)
-          .map((item) => item.ingrediente_id)
-        this.alergenoIds = product.alergenos.map((item) => item.id)
+          .map((item) => item.ingrediente_id);
+        this.alergenoIds = product.alergenos.map((item) => item.id);
       }
     } catch (error) {
-      this.error = getErrorMessage(error)
+      this.error = getErrorMessage(error);
     } finally {
-      this.loading = false
+      this.loading = false;
     }
   },
   methods: {
     locationLabel(location: Localizacao): string {
-      const level = location.nivel ? ` / Nível ${location.nivel}` : ''
-      return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}`
+      const level = location.nivel ? ` / Nível ${location.nivel}` : '';
+      return `${location.corredor} / ${location.seccao} / ${location.prateleira}${level}`;
     },
     addNutrient() {
-      this.nutrientes.push(emptyNutrient())
+      this.nutrientes.push(emptyNutrient());
     },
     removeNutrient(index: number) {
-      this.nutrientes.splice(index, 1)
+      this.nutrientes.splice(index, 1);
     },
     ingredientName(id: number): string {
-      return this.catalog.ingredientes.find((item) => item.id === id)?.nome ?? `Ingrediente ${id}`
+      return this.catalog.ingredientes.find((item) => item.id === id)?.nome ?? `Ingrediente ${id}`;
     },
     moveIngredient(index: number, direction: -1 | 1) {
-      const target = index + direction
-      if (target < 0 || target >= this.ingredienteIds.length) return
-      const ingredientId = this.ingredienteIds[index]
-      if (ingredientId === undefined) return
-      this.ingredienteIds.splice(index, 1)
-      this.ingredienteIds.splice(target, 0, ingredientId)
+      const target = index + direction;
+      if (target < 0 || target >= this.ingredienteIds.length) return;
+      const ingredientId = this.ingredienteIds[index];
+      if (ingredientId === undefined) return;
+      this.ingredienteIds.splice(index, 1);
+      this.ingredienteIds.splice(target, 0, ingredientId);
     },
     validate(): boolean {
       if (
@@ -144,44 +137,44 @@ export default defineComponent({
         !this.form.categoria_id ||
         !this.form.localizacao_id
       ) {
-        this.error = 'Preencha todos os campos obrigatórios.'
-        return false
+        this.error = 'Preencha todos os campos obrigatórios.';
+        return false;
       }
       if (this.form.preco === null || !Number.isFinite(this.form.preco) || this.form.preco < 0) {
-        this.error = 'Informe um preço válido e não negativo.'
-        return false
+        this.error = 'Informe um preço válido e não negativo.';
+        return false;
       }
       if (!this.editing && this.includeLot && (!this.lot.numero_lote || !this.lot.data_producao)) {
-        this.error = 'Informe o número e a produção do lote inicial.'
-        return false
+        this.error = 'Informe o número e a produção do lote inicial.';
+        return false;
       }
       if (!this.editing && this.form.perecivel && !this.lot.data_validade) {
-        this.error = 'Produto perecível exige lote inicial com validade.'
-        return false
+        this.error = 'Produto perecível exige lote inicial com validade.';
+        return false;
       }
       if (this.nutrientes.some((item) => !item.nome.trim() || !item.unidade.trim())) {
-        this.error = 'Preencha o nome e a unidade de todos os nutrientes.'
-        return false
+        this.error = 'Preencha o nome e a unidade de todos os nutrientes.';
+        return false;
       }
-      return true
+      return true;
     },
     async submit() {
-      this.error = ''
-      if (!this.validate()) return
-      this.saving = true
+      this.error = '';
+      if (!this.validate()) return;
+      this.saving = true;
       try {
         const composition = {
           nutrientes: this.nutrientes.map((item) => ({
             nome: item.nome.trim(),
             unidade: item.unidade.trim(),
-            valor: Number(item.valor),
+            valor: Number(item.valor)
           })),
           ingredientes: this.ingredienteIds.map((ingrediente_id, index) => ({
             ingrediente_id,
-            ordem: index + 1,
+            ordem: index + 1
           })),
-          alergeno_ids: [...this.alergenoIds],
-        }
+          alergeno_ids: [...this.alergenoIds]
+        };
         if (this.editing && this.productId) {
           const payload: ProdutoUpdate = {
             codigo: this.form.codigo,
@@ -192,27 +185,27 @@ export default defineComponent({
             categoria_id: this.form.categoria_id!,
             localizacao_id: this.form.localizacao_id!,
             ativo: this.form.ativo,
-            ...composition,
-          }
-          await produtosApi.update(this.productId, payload)
+            ...composition
+          };
+          await produtosApi.update(this.productId, payload);
         } else {
           const payload: ProdutoCreate = {
             ...this.form,
             preco: Number(this.form.preco),
             lote_inicial: this.includeLot ? this.lot : null,
-            ...composition,
-          }
-          await produtosApi.create(payload)
+            ...composition
+          };
+          await produtosApi.create(payload);
         }
-        await this.$router.push('/produtos')
+        await this.$router.push('/produtos');
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       } finally {
-        this.saving = false
+        this.saving = false;
       }
-    },
-  },
-})
+    }
+  }
+});
 </script>
 
 <template>
@@ -224,12 +217,7 @@ export default defineComponent({
       <v-form @submit.prevent="submit">
         <v-row>
           <v-col cols="12" md="4">
-            <v-text-field
-              v-model.trim="form.codigo"
-              label="Código"
-              required
-              :rules="[(v) => !!v || 'Código é obrigatório']"
-            />
+            <v-text-field v-model.trim="form.codigo" label="Código" required :rules="[(v) => !!v || 'Código é obrigatório']" />
           </v-col>
           <v-col cols="12" md="8">
             <v-text-field
@@ -247,10 +235,7 @@ export default defineComponent({
               v-model="form.preco"
               label="Preço atual"
               required
-              :rules="[
-                (v: unknown) =>
-                  (v !== null && v !== '' && v !== undefined) || 'Preço atual é obrigatório',
-              ]"
+              :rules="[(v: unknown) => (v !== null && v !== '' && v !== undefined) || 'Preço atual é obrigatório']"
             />
           </v-col>
           <v-col cols="12" md="4">
@@ -287,13 +272,7 @@ export default defineComponent({
             />
           </v-col>
           <v-col cols="6" md="4">
-            <v-switch
-              v-model="form.perecivel"
-              color="primary"
-              label="Produto perecível"
-              inset
-              :disabled="editing"
-            />
+            <v-switch v-model="form.perecivel" color="primary" label="Produto perecível" inset :disabled="editing" />
           </v-col>
           <v-col cols="6" md="4">
             <v-switch v-model="form.ativo" color="primary" label="Produto ativo" inset />
@@ -302,13 +281,7 @@ export default defineComponent({
           <template v-if="!editing">
             <v-col cols="12"><v-divider class="my-2" /></v-col>
             <v-col cols="12">
-              <v-switch
-                v-model="includeLot"
-                color="primary"
-                label="Cadastrar lote inicial"
-                inset
-                :disabled="form.perecivel"
-              />
+              <v-switch v-model="includeLot" color="primary" label="Cadastrar lote inicial" inset :disabled="form.perecivel" />
             </v-col>
             <template v-if="includeLot">
               <v-col cols="12" md="5">
@@ -345,13 +318,9 @@ export default defineComponent({
             <div class="d-flex align-center justify-space-between mb-3">
               <div>
                 <div class="text-h6">Informações alimentícias</div>
-                <div class="text-body-2 text-medium-emphasis">
-                  Ingredientes, alérgenos e valores nutricionais do produto.
-                </div>
+                <div class="text-body-2 text-medium-emphasis">Ingredientes, alérgenos e valores nutricionais do produto.</div>
               </div>
-              <v-btn variant="outlined" prepend-icon="mdi-plus" @click="addNutrient">
-                Nutriente
-              </v-btn>
+              <v-btn variant="outlined" prepend-icon="mdi-plus" @click="addNutrient">Nutriente</v-btn>
             </div>
           </v-col>
 
@@ -409,9 +378,7 @@ export default defineComponent({
           </v-col>
 
           <v-col v-if="nutrientes.length === 0" cols="12">
-            <v-alert type="info" variant="tonal" density="compact">
-              Nenhuma informação nutricional adicionada.
-            </v-alert>
+            <v-alert type="info" variant="tonal" density="compact">Nenhuma informação nutricional adicionada.</v-alert>
           </v-col>
           <template v-for="(nutriente, index) in nutrientes" :key="index">
             <v-col cols="12" md="5">
@@ -421,13 +388,7 @@ export default defineComponent({
               <v-text-field v-model.trim="nutriente.unidade" label="Unidade" />
             </v-col>
             <v-col cols="5" md="3">
-              <v-text-field
-                v-model.number="nutriente.valor"
-                type="number"
-                min="0"
-                step="0.001"
-                label="Valor"
-              />
+              <v-text-field v-model.number="nutriente.valor" type="number" min="0" step="0.001" label="Valor" />
             </v-col>
             <v-col cols="2" md="1" class="d-flex align-center justify-end">
               <v-btn
@@ -441,10 +402,8 @@ export default defineComponent({
           </template>
         </v-row>
         <div class="form-actions">
-          <v-btn variant="text" to="/produtos">Cancelar</v-btn
-          ><v-btn color="primary" type="submit" :loading="saving">{{
-            editing ? 'Salvar alterações' : 'Cadastrar produto'
-          }}</v-btn>
+          <v-btn variant="text" to="/produtos">Cancelar</v-btn>
+          <v-btn color="primary" type="submit" :loading="saving">{{ editing ? 'Salvar alterações' : 'Cadastrar produto' }}</v-btn>
         </div>
       </v-form>
     </v-card>

@@ -1,9 +1,9 @@
 <script lang="ts">
-import { defineComponent } from 'vue'
-import { mapStores } from 'pinia'
+import { defineComponent } from 'vue';
+import { mapStores } from 'pinia';
 
-import { useAuthStore } from '@/stores/auth'
-import { getErrorMessage } from '@/utils/errors'
+import { useAuthStore } from '@/stores/auth';
+import { getErrorMessage } from '@/utils/errors';
 
 export default defineComponent({
   name: 'LoginView',
@@ -12,30 +12,29 @@ export default defineComponent({
       email: '',
       senha: '',
       showPassword: false,
-      error: '',
-    }
+      error: ''
+    };
   },
   computed: {
-    ...mapStores(useAuthStore),
+    ...mapStores(useAuthStore)
   },
   methods: {
     async submit() {
-      this.error = ''
+      this.error = '';
       if (!this.email || !this.senha) {
-        this.error = 'Informe e-mail e senha.'
-        return
+        this.error = 'Informe e-mail e senha.';
+        return;
       }
       try {
-        await this.authStore.entrar(this.email, this.senha)
-        const redirect =
-          typeof this.$route.query.redirect === 'string' ? this.$route.query.redirect : '/estoque'
-        await this.$router.replace(redirect)
+        await this.authStore.entrar(this.email, this.senha);
+        const redirect = typeof this.$route.query.redirect === 'string' ? this.$route.query.redirect : '/estoque';
+        await this.$router.replace(redirect);
       } catch (error) {
-        this.error = getErrorMessage(error)
+        this.error = getErrorMessage(error);
       }
-    },
-  },
-})
+    }
+  }
+});
 </script>
 
 <template>
@@ -55,9 +54,7 @@ export default defineComponent({
             </div>
 
             <h1 class="text-h4 font-weight-bold mb-2">Boas-vindas</h1>
-            <p class="text-body-1 text-medium-emphasis mb-7">
-              Entre para acompanhar produtos e movimentações.
-            </p>
+            <p class="text-body-1 text-medium-emphasis mb-7">Entre para acompanhar produtos e movimentações.</p>
 
             <v-alert v-if="error" type="error" variant="tonal" class="mb-5">
               {{ error }}
@@ -84,15 +81,7 @@ export default defineComponent({
                 :rules="[(v) => !!v || 'Senha é obrigatória']"
                 @click:append-inner="showPassword = !showPassword"
               />
-              <v-btn
-                block
-                color="primary"
-                size="large"
-                type="submit"
-                :loading="authStore.carregando"
-              >
-                Entrar
-              </v-btn>
+              <v-btn block color="primary" size="large" type="submit" :loading="authStore.carregando">Entrar</v-btn>
             </v-form>
           </v-card>
         </v-col>

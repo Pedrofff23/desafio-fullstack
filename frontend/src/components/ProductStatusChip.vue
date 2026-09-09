@@ -1,25 +1,25 @@
 <script lang="ts">
-import { defineComponent, type PropType } from 'vue'
+import { defineComponent, type PropType } from 'vue';
 
-import type { ProdutoStatus } from '@/types/api'
+import type { ProdutoStatus } from '@/types/api';
 
 const statusMap = {
   ok: { label: 'Normal', color: 'success', icon: 'mdi-check-circle-outline' },
   estoque_baixo: { label: 'Estoque baixo', color: 'warning', icon: 'mdi-trending-down' },
-  zerado: { label: 'Sem estoque', color: 'error', icon: 'mdi-package-variant-remove' },
-} as const
+  zerado: { label: 'Sem estoque', color: 'error', icon: 'mdi-package-variant-remove' }
+} as const;
 
 export default defineComponent({
   name: 'ProductStatusChip',
   props: {
-    status: { type: String as PropType<ProdutoStatus>, required: true },
+    status: { type: String as PropType<ProdutoStatus>, required: true }
   },
   computed: {
     config() {
-      return statusMap[this.status] ?? statusMap.ok
-    },
-  },
-})
+      return statusMap[this.status] ?? statusMap.ok;
+    }
+  }
+});
 </script>
 
 <template>
