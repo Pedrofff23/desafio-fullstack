@@ -11,36 +11,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
+from app.models.localidade import Contato, Endereco
 from app.models.usuario import Funcionario, Usuario
-from app.repositories.localidade_repository import LocalidadeRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.usuario import (
-    ContatoIn,
     EnderecoIn,
     UsuarioCreate,
     UsuarioOut,
     UsuarioUpdate,
 )
-
-
-def _contato_para_orm(data: ContatoIn) -> dict[str, str]:
-    return {
-        "codigo_pais": data.codigo_pais,
-        "ddd": data.ddd,
-        "numero": data.numero,
-    }
-
-
-def _endereco_para_orm(data: EnderecoIn) -> dict[str, str | int | None]:
-    return {
-        "logradouro": data.logradouro,
-        "numero": data.numero,
-        "complemento": data.complemento,
-        "cep": data.cep,
-        "bairro": data.bairro,
-        "cidade_id": data.cidade_id,
-    }
+from app.services.localidade_service import LocalidadeService
 
 
 class UsuarioService:
@@ -49,7 +30,7 @@ class UsuarioService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repo = UsuarioRepository(session)
-        self.localidade_repo = LocalidadeRepository(session)
+        self.localidade_service = LocalidadeService(session)
 
     # ------------------------------------------------------------------
     # Helper de montagem do DTO
@@ -62,13 +43,9 @@ class UsuarioService:
     # Validações de FK
     # ------------------------------------------------------------------
     async def _validar_endereco(self, endereco: EnderecoIn) -> None:
-        if not await self.localidade_repo.cidade_pertence_ao_estado(
+        await self.localidade_service.validar_cidade_pertence_ao_estado(
             endereco.cidade_id, endereco.estado_id
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="A cidade informada não pertence ao estado selecionado",
-            )
+        )
 
     async def _validar_email_unico(
         self, email: str, ignorar_id: int | None = None
@@ -105,12 +82,9 @@ class UsuarioService:
         await self._validar_email_unico(data.email)
         await self._validar_endereco(data.endereco)
 
-        # Endereço
-        from app.models.localidade import Contato as ContatoModel
-        from app.models.localidade import Endereco as EnderecoModel
-
-        endereco = EnderecoModel(**_endereco_para_orm(data.endereco))
-        contato = ContatoModel(**_contato_para_orm(data.contato))
+        # Endereço e Contato
+        endereco = Endereco(**data.endereco.model_dump(exclude={"estado_id"}))
+        contato = Contato(**data.contato.model_dump())
 
         # Funcionário
         funcionario = Funcionario(
@@ -173,17 +147,13 @@ class UsuarioService:
             usuario.senha_hash = hash_password(data.senha)
 
         if data.contato is not None:
-            contato = funcionario.contato
-            vals = _contato_para_orm(data.contato)
-            for k, v in vals.items():
-                setattr(contato, k, v)
+            for k, v in data.contato.model_dump().items():
+                setattr(funcionario.contato, k, v)
 
         if data.endereco is not None:
             await self._validar_endereco(data.endereco)
-            endereco = funcionario.endereco
-            vals = _endereco_para_orm(data.endereco)
-            for k, v in vals.items():
-                setattr(endereco, k, v)
+            for k, v in data.endereco.model_dump(exclude={"estado_id"}).items():
+                setattr(funcionario.endereco, k, v)
 
         try:
             await self.session.commit()

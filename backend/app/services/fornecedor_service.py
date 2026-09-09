@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.fornecedor import Fornecedor
 from app.models.localidade import Contato, Endereco
 from app.repositories.fornecedor_repository import FornecedorRepository
-from app.repositories.localidade_repository import LocalidadeRepository
+from app.services.localidade_service import LocalidadeService
 from app.schemas.fornecedor import FornecedorCreate, FornecedorOut, FornecedorUpdate
 
 
@@ -17,16 +17,12 @@ class FornecedorService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repo = FornecedorRepository(session)
-        self.localidade_repo = LocalidadeRepository(session)
+        self.localidade_service = LocalidadeService(session)
 
     async def _validar_endereco(self, cidade_id: int, estado_id: int) -> None:
-        if not await self.localidade_repo.cidade_pertence_ao_estado(
+        await self.localidade_service.validar_cidade_pertence_ao_estado(
             cidade_id, estado_id
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="A cidade informada não pertence ao estado selecionado",
-            )
+        )
 
     @staticmethod
     def _to_out(fornecedor: Fornecedor) -> FornecedorOut:
@@ -94,6 +90,5 @@ class FornecedorService:
         if fornecedor is None:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
         fornecedor.ativo = False
-        fornecedor.excluido_em = datetime.now(UTC)
-        fornecedor.excluido_por = excluido_por
+        await self.repo.soft_delete(fornecedor_id, excluido_por)
         await self.session.commit()

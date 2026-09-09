@@ -26,12 +26,10 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
     # Entradas
     # ------------------------------------------------------------------
     async def get_entrada(self, entrada_id: int) -> RegistroEntrada | None:
-        return await self.session.get(RegistroEntrada, entrada_id)
+        return await self.get(entrada_id)
 
     async def add_entrada(self, entrada: RegistroEntrada) -> RegistroEntrada:
-        self.session.add(entrada)
-        await self.session.flush()
-        return entrada
+        return await self.add(entrada)
 
     # ------------------------------------------------------------------
     # Saídas

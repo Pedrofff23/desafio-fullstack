@@ -25,3 +25,13 @@ class LocalidadeService:
             CidadeOut(id=c.id, nome=c.nome, ibge=c.ibge, estado_id=c.uf)
             for c in cidades
         ]
+
+    async def validar_cidade_pertence_ao_estado(
+        self, cidade_id: int, estado_id: int
+    ) -> None:
+        """Garante que a cidade pertence ao estado selecionado, levantando 400 caso contrário."""
+        if not await self.repo.cidade_pertence_ao_estado(cidade_id, estado_id):
+            raise HTTPException(
+                status_code=400,
+                detail="A cidade informada não pertence ao estado selecionado",
+            )
