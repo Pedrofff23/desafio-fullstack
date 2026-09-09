@@ -19,14 +19,14 @@ router = APIRouter(prefix="/usuarios", tags=[USERS_TAG])
     status_code=status.HTTP_200_OK,
     summary="Listar usuários",
 )
-async def listar(
+async def list_users(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     nome: str | None = None,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> PaginatedResponse[UsuarioOut]:
-    return await UsuarioService(db).listar(page=page, size=size, nome=nome)
+    return await UsuarioService(db).list(page=page, size=size, name=nome)
 
 
 @router.post(
@@ -41,12 +41,12 @@ async def listar(
         status.HTTP_409_CONFLICT: {"description": "E-mail já cadastrado"},
     },
 )
-async def criar(
+async def create_user(
     payload: UsuarioCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
 ) -> UsuarioOut:
-    return await UsuarioService(db).criar(payload, criado_por=current.id)
+    return await UsuarioService(db).create(payload, created_by=current.id)
 
 
 @router.get(
@@ -58,12 +58,12 @@ async def criar(
         status.HTTP_404_NOT_FOUND: {"description": "Usuário não encontrado"},
     },
 )
-async def obter(
+async def get_user(
     usuario_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> UsuarioOut:
-    return await UsuarioService(db).obter(usuario_id)
+    return await UsuarioService(db).get(usuario_id)
 
 
 @router.put(
@@ -76,13 +76,13 @@ async def obter(
         status.HTTP_409_CONFLICT: {"description": "E-mail já em uso por outro usuário"},
     },
 )
-async def atualizar(
+async def update_user(
     usuario_id: int,
     payload: UsuarioUpdate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
 ) -> UsuarioOut:
-    return await UsuarioService(db).atualizar(usuario_id, payload, current.id)
+    return await UsuarioService(db).update(usuario_id, payload, current.id)
 
 
 @router.delete(
@@ -94,10 +94,10 @@ async def atualizar(
         status.HTTP_404_NOT_FOUND: {"description": "Usuário não encontrado"},
     },
 )
-async def excluir(
+async def delete_user(
     usuario_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
 ) -> MessageResponse:
-    await UsuarioService(db).excluir(usuario_id, excluido_por=current.id)
+    await UsuarioService(db).delete(usuario_id, deleted_by=current.id)
     return MessageResponse(message="Usuário excluído com sucesso.")

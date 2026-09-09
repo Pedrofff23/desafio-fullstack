@@ -19,8 +19,8 @@ class FornecedorService:
         self.repo = FornecedorRepository(session)
         self.localidade_service = LocalidadeService(session)
 
-    async def _validar_endereco(self, cidade_id: int, estado_id: int) -> None:
-        await self.localidade_service.validar_cidade_pertence_ao_estado(
+    async def _validate_address(self, cidade_id: int, estado_id: int) -> None:
+        await self.localidade_service.validate_city_belongs_to_state(
             cidade_id, estado_id
         )
 
@@ -28,17 +28,17 @@ class FornecedorService:
     def _to_out(fornecedor: Fornecedor) -> FornecedorOut:
         return FornecedorOut.model_validate(fornecedor, from_attributes=True)
 
-    async def listar(self) -> list[FornecedorOut]:
-        return [self._to_out(item) for item in await self.repo.listar()]
+    async def list(self) -> list[FornecedorOut]:
+        return [self._to_out(item) for item in await self.repo.list()]
 
-    async def obter(self, fornecedor_id: int) -> FornecedorOut:
-        fornecedor = await self.repo.obter(fornecedor_id)
+    async def get(self, fornecedor_id: int) -> FornecedorOut:
+        fornecedor = await self.repo.get(fornecedor_id)
         if fornecedor is None:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
         return self._to_out(fornecedor)
 
-    async def criar(self, data: FornecedorCreate) -> FornecedorOut:
-        await self._validar_endereco(data.endereco.cidade_id, data.endereco.estado_id)
+    async def create(self, data: FornecedorCreate) -> FornecedorOut:
+        await self._validate_address(data.endereco.cidade_id, data.endereco.estado_id)
         fornecedor = Fornecedor(
             nome_empresa=data.nome_empresa,
             contato=Contato(**data.contato.model_dump()),
@@ -54,12 +54,12 @@ class FornecedorService:
                 status_code=409,
                 detail="Fornecedor, contato ou endereço já cadastrado",
             ) from exc
-        return await self.obter(fornecedor.id)
+        return await self.get(fornecedor.id)
 
-    async def atualizar(
+    async def update(
         self, fornecedor_id: int, data: FornecedorUpdate
     ) -> FornecedorOut:
-        fornecedor = await self.repo.obter(fornecedor_id)
+        fornecedor = await self.repo.get(fornecedor_id)
         if fornecedor is None:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
         if data.nome_empresa is not None:
@@ -70,7 +70,7 @@ class FornecedorService:
             for campo, valor in data.contato.model_dump().items():
                 setattr(fornecedor.contato, campo, valor)
         if data.endereco is not None:
-            await self._validar_endereco(
+            await self._validate_address(
                 data.endereco.cidade_id, data.endereco.estado_id
             )
             for campo, valor in data.endereco.model_dump(exclude={"estado_id"}).items():
@@ -83,12 +83,12 @@ class FornecedorService:
                 status_code=409,
                 detail="Fornecedor, contato ou endereço já cadastrado",
             ) from exc
-        return await self.obter(fornecedor_id)
+        return await self.get(fornecedor_id)
 
-    async def excluir(self, fornecedor_id: int, excluido_por: int | None) -> None:
-        fornecedor = await self.repo.obter(fornecedor_id)
+    async def delete(self, fornecedor_id: int, excluded_by: int | None) -> None:
+        fornecedor = await self.repo.get(fornecedor_id)
         if fornecedor is None:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
         fornecedor.ativo = False
-        await self.repo.soft_delete(fornecedor_id, excluido_por)
+        await self.repo.soft_delete(fornecedor_id, excluded_by)
         await self.session.commit()

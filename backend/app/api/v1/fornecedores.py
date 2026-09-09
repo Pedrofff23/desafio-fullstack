@@ -20,10 +20,10 @@ router = APIRouter(prefix="/transacoes/fornecedores")
     tags=[SUPPLIERS_TAG],
     summary="Listar fornecedores",
 )
-async def listar(
+async def list_suppliers(
     db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
 ) -> list[FornecedorOut]:
-    return await FornecedorService(db).listar()
+    return await FornecedorService(db).list()
 
 
 @router.post(
@@ -33,12 +33,12 @@ async def listar(
     tags=[SUPPLIERS_TAG],
     summary="Cadastrar fornecedor",
 )
-async def criar(
+async def create_supplier(
     payload: FornecedorCreate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> FornecedorOut:
-    return await FornecedorService(db).criar(payload)
+    return await FornecedorService(db).create(payload)
 
 
 @router.get(
@@ -47,12 +47,12 @@ async def criar(
     tags=[SUPPLIERS_TAG],
     summary="Obter fornecedor",
 )
-async def obter(
+async def get_supplier(
     fornecedor_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> FornecedorOut:
-    return await FornecedorService(db).obter(fornecedor_id)
+    return await FornecedorService(db).get(fornecedor_id)
 
 
 @router.put(
@@ -61,13 +61,13 @@ async def obter(
     tags=[SUPPLIERS_TAG],
     summary="Atualizar fornecedor",
 )
-async def atualizar(
+async def update_supplier(
     fornecedor_id: int,
     payload: FornecedorUpdate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> FornecedorOut:
-    return await FornecedorService(db).atualizar(fornecedor_id, payload)
+    return await FornecedorService(db).update(fornecedor_id, payload)
 
 
 @router.delete(
@@ -76,10 +76,10 @@ async def atualizar(
     tags=[SUPPLIERS_TAG],
     summary="Excluir fornecedor",
 )
-async def excluir(
+async def delete_supplier(
     fornecedor_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
 ) -> MessageResponse:
-    await FornecedorService(db).excluir(fornecedor_id, current.id)
+    await FornecedorService(db).delete(fornecedor_id, current.id)
     return MessageResponse(message="Fornecedor excluído com sucesso.")

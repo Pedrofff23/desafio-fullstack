@@ -20,12 +20,12 @@ router = APIRouter(prefix="/produtos/{produto_id}/lotes")
     tags=[LOTS_TAG],
     summary="Listar lotes de um produto",
 )
-async def listar(
+async def list_lots(
     produto_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> list[LoteOut]:
-    return await LoteService(db).listar(produto_id)
+    return await LoteService(db).list(produto_id)
 
 
 @router.post(
@@ -35,13 +35,13 @@ async def listar(
     tags=[LOTS_TAG],
     summary="Cadastrar lote de um produto",
 )
-async def criar(
+async def create_lot(
     produto_id: int,
     payload: LoteCreate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> LoteOut:
-    return await LoteService(db).criar(produto_id, payload)
+    return await LoteService(db).create(produto_id, payload)
 
 
 @router.get(
@@ -50,13 +50,13 @@ async def criar(
     tags=[LOTS_TAG],
     summary="Obter lote de um produto",
 )
-async def obter(
+async def get_lot(
     produto_id: int,
     lote_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> LoteOut:
-    return await LoteService(db).obter(produto_id, lote_id)
+    return await LoteService(db).get(produto_id, lote_id)
 
 
 @router.put(
@@ -65,14 +65,14 @@ async def obter(
     tags=[LOTS_TAG],
     summary="Atualizar lote de um produto",
 )
-async def atualizar(
+async def update_lot(
     produto_id: int,
     lote_id: int,
     payload: LoteUpdate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> LoteOut:
-    return await LoteService(db).atualizar(produto_id, lote_id, payload)
+    return await LoteService(db).update(produto_id, lote_id, payload)
 
 
 @router.delete(
@@ -81,11 +81,11 @@ async def atualizar(
     tags=[LOTS_TAG],
     summary="Excluir lote de um produto",
 )
-async def excluir(
+async def delete_lot(
     produto_id: int,
     lote_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
 ) -> MessageResponse:
-    await LoteService(db).excluir(produto_id, lote_id, current.id)
+    await LoteService(db).delete(produto_id, lote_id, current.id)
     return MessageResponse(message="Lote excluído com sucesso.")

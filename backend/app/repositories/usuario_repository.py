@@ -27,7 +27,7 @@ class UsuarioRepository(BaseRepository[Usuario]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def listar_paginado(
+    async def list_paginated(
         self, *, page: int = 1, size: int = 20, nome: str | None = None
     ) -> tuple[list[Usuario], int]:
         """Busca paginada de usuários com filtros no banco."""

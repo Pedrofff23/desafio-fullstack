@@ -42,12 +42,12 @@ class UsuarioService:
     # ------------------------------------------------------------------
     # Validações de FK
     # ------------------------------------------------------------------
-    async def _validar_endereco(self, endereco: EnderecoIn) -> None:
+    async def _validate_address(self, endereco: EnderecoIn) -> None:
         await self.localidade_service.validar_cidade_pertence_ao_estado(
             endereco.cidade_id, endereco.estado_id
         )
 
-    async def _validar_email_unico(
+    async def _validate_unique_email(
         self, email: str, ignorar_id: int | None = None
     ) -> None:
         existente = await self.repo.get_by_email_including_inactive(email)
@@ -57,14 +57,14 @@ class UsuarioService:
     # ------------------------------------------------------------------
     # Listagem
     # ------------------------------------------------------------------
-    async def listar(
-        self, page: int = 1, size: int = 20, nome: str | None = None
+    async def list(
+        self, page: int = 1, size: int = 20, name: str | None = None
     ) -> PaginatedResponse[UsuarioOut]:
-        itens, total = await self.repo.listar_paginado(page=page, size=size, nome=nome)
+        itens, total = await self.repo.list_paginated(page=page, size=size, nome=name)
         out = [self._to_out(u) for u in itens]
         return PaginatedResponse.build(out, total, page, size)
 
-    async def obter(self, usuario_id: int) -> UsuarioOut:
+    async def get(self, usuario_id: int) -> UsuarioOut:
         usuario = await self._carregar_model(usuario_id)
         if usuario is None or usuario.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
@@ -76,11 +76,11 @@ class UsuarioService:
     # ------------------------------------------------------------------
     # Criação (transacional)
     # ------------------------------------------------------------------
-    async def criar(
-        self, data: UsuarioCreate, criado_por: int | None = None
+    async def create(
+        self, data: UsuarioCreate, created_by: int | None = None
     ) -> UsuarioOut:
-        await self._validar_email_unico(data.email)
-        await self._validar_endereco(data.endereco)
+        await self._validate_unique_email(data.email)
+        await self._validate_address(data.endereco)
 
         # Endereço e Contato
         endereco = Endereco(**data.endereco.model_dump(exclude={"estado_id"}))
@@ -123,7 +123,7 @@ class UsuarioService:
     # ------------------------------------------------------------------
     # Edição (transacional, em cascata)
     # ------------------------------------------------------------------
-    async def atualizar(
+    async def update(
         self, usuario_id: int, data: UsuarioUpdate, atualizado_por: int | None = None
     ) -> UsuarioOut:
         usuario = await self._carregar_model(usuario_id)
@@ -131,7 +131,7 @@ class UsuarioService:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
         if data.email is not None and data.email != usuario.email:
-            await self._validar_email_unico(data.email, ignorar_id=usuario_id)
+            await self._validate_unique_email(data.email, ignorar_id=usuario_id)
 
         funcionario = usuario.funcionario
 
@@ -151,7 +151,7 @@ class UsuarioService:
                 setattr(funcionario.contato, k, v)
 
         if data.endereco is not None:
-            await self._validar_endereco(data.endereco)
+            await self._validate_address(data.endereco)
             for k, v in data.endereco.model_dump(exclude={"estado_id"}).items():
                 setattr(funcionario.endereco, k, v)
 
@@ -174,17 +174,17 @@ class UsuarioService:
     # ------------------------------------------------------------------
     # Exclusão (soft delete em cascata)
     # ------------------------------------------------------------------
-    async def excluir(self, usuario_id: int, excluido_por: int | None = None) -> None:
+    async def delete(self, usuario_id: int, deleted_by: int | None = None) -> None:
         usuario = await self._carregar_model(usuario_id)
         if usuario is None or usuario.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
         agora = datetime.now(UTC)
         usuario.excluido_em = agora
-        usuario.excluido_por = excluido_por
+        usuario.excluido_por = deleted_by
         usuario.ativo = False
         usuario.funcionario.excluido_em = agora
-        usuario.funcionario.excluido_por = excluido_por
+        usuario.funcionario.excluido_por = deleted_by
         await self.session.commit()
 
     async def me(self, usuario_id: int) -> UsuarioOut:
-        return await self.obter(usuario_id)
+        return await self.get(usuario_id)

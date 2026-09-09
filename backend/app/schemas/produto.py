@@ -89,17 +89,17 @@ class ProdutoCreate(BaseModel):
     alergeno_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _validade_obrigatoria_para_perecivel(self) -> "ProdutoCreate":
+    def _require_expiration_for_perishable(self) -> "ProdutoCreate":
         if self.perecivel and (
             self.lote_inicial is None or self.lote_inicial.data_validade is None
         ):
             raise ValueError(
                 "Produto perecível exige lote inicial com data de validade"
             )
-        self._validar_composicao()
+        self._validate_composition()
         return self
 
-    def _validar_composicao(self) -> None:
+    def _validate_composition(self) -> None:
         nomes = [item.nome.strip().casefold() for item in self.nutrientes]
         if len(nomes) != len(set(nomes)):
             raise ValueError("Os nomes dos nutrientes não podem se repetir")

@@ -53,7 +53,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         )
         return float(row.scalar() or 0)
 
-    async def entradas_disponiveis(
+    async def list_available_entries(
         self, produto_id: int | None = None
     ) -> list[dict[str, Any]]:
         """Lista entradas que ainda possuem saldo para uma futura saída."""
@@ -90,7 +90,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             for row in rows.fetchall()
         ]
 
-    async def estoque_atual_por_produto(
+    async def get_current_stock_by_product(
         self, *, page: int = 1, size: int = 20
     ) -> tuple[list[dict[str, Any]], int]:
         """Retorna o estoque agregado com paginação executada no PostgreSQL."""
@@ -157,7 +157,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
     # ------------------------------------------------------------------
     # Histórico (auditoria) — unifica entradas e saídas em uma lista
     # ------------------------------------------------------------------
-    async def historico(
+    async def get_history(
         self,
         *,
         page: int = 1,

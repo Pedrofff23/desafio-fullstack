@@ -46,7 +46,7 @@ class TransacaoService:
     # ------------------------------------------------------------------
     # Entrada
     # ------------------------------------------------------------------
-    async def registrar_entrada(
+    async def register_entry(
         self, data: RegistroEntradaCreate, funcionario_id: int
     ) -> RegistroEntradaOut:
         lote = await self.lote_repo.get(data.lote_id)
@@ -57,7 +57,7 @@ class TransacaoService:
         if produto is None or produto.excluido_em is not None or not produto.ativo:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-        fornecedor = await self.fornecedor_repo.obter(data.fornecedor_id)
+        fornecedor = await self.fornecedor_repo.get(data.fornecedor_id)
         if fornecedor is None or not fornecedor.ativo:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
 
@@ -90,7 +90,7 @@ class TransacaoService:
     # ------------------------------------------------------------------
     # Saída (valida slado; integridade sob concorrência via trigger)
     # ------------------------------------------------------------------
-    async def registrar_saida(
+    async def register_exit(
         self, data: RegistroSaidaCreate, funcionario_id: int
     ) -> RegistroSaidaOut:
         entrada = await self.repo.get_entrada(data.entrada_id)
@@ -129,22 +129,22 @@ class TransacaoService:
     # ------------------------------------------------------------------
     # Estoque atual
     # ------------------------------------------------------------------
-    async def entradas_disponiveis(
+    async def list_available_entries(
         self, produto_id: int | None = None
     ) -> list[EstoqueEntradaOut]:
-        linhas = await self.repo.entradas_disponiveis(produto_id=produto_id)
+        linhas = await self.repo.list_available_entries(produto_id=produto_id)
         return [EstoqueEntradaOut.model_validate(linha) for linha in linhas]
 
-    async def estoque_atual(
+    async def get_current_stock(
         self, page: int = 1, size: int = 20
     ) -> PaginatedResponse[dict]:
-        linhas, total = await self.repo.estoque_atual_por_produto(page=page, size=size)
+        linhas, total = await self.repo.get_current_stock_by_product(page=page, size=size)
         return PaginatedResponse.build(linhas, total, page, size)
 
     # ------------------------------------------------------------------
     # Histórico
     # ------------------------------------------------------------------
-    async def historico(
+    async def get_history(
         self,
         page: int = 1,
         size: int = 20,
@@ -155,7 +155,7 @@ class TransacaoService:
         data_inicio: datetime | None = None,
         data_fim: datetime | None = None,
     ) -> PaginatedResponse[MovimentoOut]:
-        linhas, total = await self.repo.historico(
+        linhas, total = await self.repo.get_history(
             page=page,
             size=size,
             produto_id=produto_id,

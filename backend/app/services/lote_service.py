@@ -45,28 +45,28 @@ class LoteService:
             localizacoes=[LoteLocalizacaoOut.model_validate(x) for x in localizacoes],
         )
 
-    async def _produto(self, produto_id: int):
+    async def _get_product(self, produto_id: int):
         produto = await self.produto_repo.get(produto_id)
         if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         return produto
 
-    async def listar(self, produto_id: int) -> list[LoteOut]:
-        await self._produto(produto_id)
-        lotes = await self.repo.listar_do_produto(produto_id)
+    async def list(self, produto_id: int) -> list[LoteOut]:
+        await self._get_product(produto_id)
+        lotes = await self.repo.list_by_product(produto_id)
         locais = await self.repo.localizacoes(produto_id)
         return [self._to_out(lote, locais.get(lote.id, [])) for lote in lotes]
 
-    async def obter(self, produto_id: int, lote_id: int) -> LoteOut:
-        await self._produto(produto_id)
-        lote = await self.repo.obter(produto_id, lote_id)
+    async def get(self, produto_id: int, lote_id: int) -> LoteOut:
+        await self._get_product(produto_id)
+        lote = await self.repo.get(produto_id, lote_id)
         if lote is None:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
         locais = await self.repo.localizacoes(produto_id)
         return self._to_out(lote, locais.get(lote.id, []))
 
-    async def criar(self, produto_id: int, data: LoteCreate) -> LoteOut:
-        produto = await self._produto(produto_id)
+    async def create(self, produto_id: int, data: LoteCreate) -> LoteOut:
+        produto = await self._get_product(produto_id)
         if produto.perecivel and data.data_validade is None:
             raise HTTPException(
                 status_code=422,
@@ -81,13 +81,13 @@ class LoteService:
             raise HTTPException(
                 status_code=409, detail="Número de lote já cadastrado"
             ) from exc
-        return await self.obter(produto_id, lote.id)
+        return await self.get(produto_id, lote.id)
 
-    async def atualizar(
+    async def update(
         self, produto_id: int, lote_id: int, data: LoteUpdate
     ) -> LoteOut:
-        produto = await self._produto(produto_id)
-        lote = await self.repo.obter(produto_id, lote_id)
+        produto = await self._get_product(produto_id)
+        lote = await self.repo.get(produto_id, lote_id)
         if lote is None:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
         valores = data.model_dump(exclude_unset=True)
@@ -117,13 +117,13 @@ class LoteService:
             raise HTTPException(
                 status_code=409, detail="Número de lote já cadastrado"
             ) from exc
-        return await self.obter(produto_id, lote_id)
+        return await self.get(produto_id, lote_id)
 
-    async def excluir(
+    async def delete(
         self, produto_id: int, lote_id: int, excluido_por: int | None
     ) -> None:
-        await self._produto(produto_id)
-        lote = await self.repo.obter(produto_id, lote_id)
+        await self._get_product(produto_id)
+        lote = await self.repo.get(produto_id, lote_id)
         if lote is None:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
         if await self.repo.saldo(lote_id) > 0:

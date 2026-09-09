@@ -19,7 +19,7 @@ class FornecedorRepository(BaseRepository[Fornecedor]):
             selectinload(Fornecedor.endereco).selectinload(Endereco.cidade),
         )
 
-    async def listar(self) -> list[Fornecedor]:
+    async def list(self) -> list[Fornecedor]:
         result = await self.session.execute(
             self._com_relacionamentos()
             .where(Fornecedor.excluido_em.is_(None))
@@ -27,10 +27,10 @@ class FornecedorRepository(BaseRepository[Fornecedor]):
         )
         return list(result.scalars().unique().all())
 
-    async def obter(self, fornecedor_id: int) -> Fornecedor | None:
+    async def get(self, id: int) -> Fornecedor | None:
         result = await self.session.execute(
             self._com_relacionamentos().where(
-                Fornecedor.id == fornecedor_id,
+                Fornecedor.id == id,
                 Fornecedor.excluido_em.is_(None),
             )
         )

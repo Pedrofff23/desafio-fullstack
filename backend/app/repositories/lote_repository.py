@@ -13,7 +13,7 @@ class LoteRepository(BaseRepository[Lote]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(Lote, session)
 
-    async def obter(self, produto_id: int, lote_id: int) -> Lote | None:
+    async def get(self, produto_id: int, lote_id: int) -> Lote | None:
         result = await self.session.execute(
             select(Lote).where(
                 Lote.id == lote_id,
@@ -23,7 +23,7 @@ class LoteRepository(BaseRepository[Lote]):
         )
         return result.scalar_one_or_none()
 
-    async def listar_do_produto(self, produto_id: int) -> list[Lote]:
+    async def list_by_product(self, produto_id: int) -> list[Lote]:
         result = await self.session.execute(
             select(Lote)
             .where(Lote.produto_id == produto_id, Lote.excluido_em.is_(None))

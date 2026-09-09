@@ -13,7 +13,7 @@ class LoteInput(BaseModel):
     ativo: bool = True
 
     @model_validator(mode="after")
-    def _validade_apos_producao(self) -> "LoteInput":
+    def _expiration_after_production(self) -> "LoteInput":
         if self.data_validade is not None and self.data_validade < self.data_producao:
             raise ValueError("Data de validade não pode ser anterior à produção")
         return self
