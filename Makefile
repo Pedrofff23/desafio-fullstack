@@ -1,3 +1,4 @@
+.PHONY: help up build down restart logs ps db-shell db-check db-clean db-seed db-seed-geo db-seed-all backend-shell backend-test uv-sync uv-run frontend-install frontend-dev frontend-test frontend-build
 .PHONY: help up build down restart logs ps db-shell db-check db-clean db-seed db-seed-geo db-seed-demo db-seed-all backend-shell backend-test uv-sync uv-run frontend-install frontend-dev frontend-test frontend-build
 
 # Default target: show help
