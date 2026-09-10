@@ -42,7 +42,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
     # ------------------------------------------------------------------
     # Saldos (views criadas na migration)
     # ------------------------------------------------------------------
-    async def saldo_entrada(self, entrada_id: int) -> float:
+    async def get_saldo_entrada(self, entrada_id: int) -> float:
         row = await self.session.execute(
             text("""
                 SELECT COALESCE(quantidade, 0)
@@ -53,7 +53,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         )
         return float(row.scalar() or 0)
 
-    async def list_available_entries(
+    async def list_entradas_disponiveis(
         self, produto_id: int | None = None
     ) -> list[dict[str, Any]]:
         """Lista entradas que ainda possuem saldo para uma futura saída."""
@@ -90,7 +90,7 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
             for row in rows.fetchall()
         ]
 
-    async def get_current_stock_by_product(
+    async def get_estoque_atual_by_produto(
         self, *, page: int = 1, size: int = 20, nome: str | None = None
     ) -> tuple[list[dict[str, Any]], int]:
         """Retorna o estoque agregado com paginação executada no PostgreSQL."""
@@ -170,9 +170,9 @@ class TransacaoRepository(BaseRepository[RegistroEntrada]):
         return itens, total
 
     # ------------------------------------------------------------------
-    # Histórico (auditoria) — unifica entradas e saídas em uma lista
+    # Histórico — unifica entradas e saídas em uma lista
     # ------------------------------------------------------------------
-    async def get_history(
+    async def get_historico(
         self,
         *,
         page: int = 1,

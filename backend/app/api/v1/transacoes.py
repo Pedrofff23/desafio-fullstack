@@ -48,12 +48,12 @@ router = APIRouter(prefix="/transacoes")
         },
     },
 )
-async def register_stock_entry(
+async def register_entrada(
     payload: RegistroEntradaCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
 ) -> RegistroEntradaOut:
-    return await TransacaoService(db).register_entry(
+    return await TransacaoService(db).register_entrada(
         payload, funcionario_id=current.funcionario_id
     )
 
@@ -69,12 +69,12 @@ async def register_stock_entry(
         status.HTTP_404_NOT_FOUND: {"description": "Entrada de estoque não encontrada"},
     },
 )
-async def register_stock_exit(
+async def register_saida(
     payload: RegistroSaidaCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
 ) -> RegistroSaidaOut:
-    return await TransacaoService(db).register_exit(
+    return await TransacaoService(db).register_saida(
         payload, funcionario_id=current.funcionario_id
     )
 
@@ -91,12 +91,12 @@ async def register_stock_exit(
     tags=[INVENTORY_QUERIES_TAG],
     summary="Listar entradas com saldo disponível",
 )
-async def list_available_entries(
+async def list_entradas_disponiveis(
     produto_id: int | None = Query(None, ge=1),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> list[EstoqueEntradaOut]:
-    return await TransacaoService(db).list_available_entries(produto_id=produto_id)
+    return await TransacaoService(db).list_entradas_disponiveis(produto_id=produto_id)
 
 
 @router.get(
@@ -106,7 +106,7 @@ async def list_available_entries(
     tags=[INVENTORY_QUERIES_TAG],
     summary="Consultar estoque atual por produto",
 )
-async def get_current_stock(
+async def get_estoque_atual(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     nome: str | None = Query(None, description="Filtrar por nome do produto"),
@@ -115,7 +115,7 @@ async def get_current_stock(
 ) -> PaginatedResponse[EstoqueProdutoOut]:
     return cast(
         PaginatedResponse[EstoqueProdutoOut],
-        await TransacaoService(db).get_current_stock(page=page, size=size, nome=nome),
+        await TransacaoService(db).get_estoque_atual(page=page, size=size, nome=nome),
     )
 
 
@@ -126,7 +126,7 @@ async def get_current_stock(
     tags=[INVENTORY_QUERIES_TAG],
     summary="Consultar histórico de movimentações",
 )
-async def get_history(
+async def get_historico(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     produto_id: int | None = None,
@@ -138,7 +138,7 @@ async def get_history(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ) -> PaginatedResponse[MovimentoOut]:
-    return await TransacaoService(db).get_history(
+    return await TransacaoService(db).get_historico(
         page=page,
         size=size,
         produto_id=produto_id,

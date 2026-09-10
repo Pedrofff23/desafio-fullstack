@@ -14,26 +14,26 @@ class LoteRepository(BaseRepository[Lote]):
         super().__init__(Lote, session)
 
     async def get(
-        self, id_ou_produto_id: int, lote_id: int | None = None
+        self, id: int, lote_id: int | None = None
     ) -> Lote | None:
         """Obtém um lote por id ou por (produto_id, lote_id)."""
         if lote_id is None:
             # Chamada com apenas lote_id (ex: transacao_service)
             stmt = select(Lote).where(
-                Lote.id == id_ou_produto_id,
+                Lote.id == id,
                 Lote.excluido_em.is_(None),
             )
         else:
             # Chamada com produto_id e lote_id (ex: lote_service)
             stmt = select(Lote).where(
                 Lote.id == lote_id,
-                Lote.produto_id == id_ou_produto_id,
+                Lote.produto_id == id,
                 Lote.excluido_em.is_(None),
             )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_by_product(self, produto_id: int) -> list[Lote]:
+    async def list_by_produto(self, produto_id: int) -> list[Lote]:
         result = await self.session.execute(
             select(Lote)
             .where(Lote.produto_id == produto_id, Lote.excluido_em.is_(None))

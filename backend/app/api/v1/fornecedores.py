@@ -20,7 +20,7 @@ router = APIRouter(prefix="/transacoes/fornecedores")
     tags=[SUPPLIERS_TAG],
     summary="Listar fornecedores",
 )
-async def list_suppliers(
+async def list_fornecedores(
     db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
 ) -> list[FornecedorOut]:
     return await FornecedorService(db).list()
@@ -33,7 +33,7 @@ async def list_suppliers(
     tags=[SUPPLIERS_TAG],
     summary="Cadastrar fornecedor",
 )
-async def create_supplier(
+async def create_fornecedor(
     payload: FornecedorCreate,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
@@ -47,7 +47,7 @@ async def create_supplier(
     tags=[SUPPLIERS_TAG],
     summary="Obter fornecedor",
 )
-async def get_supplier(
+async def get_fornecedor(
     fornecedor_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
@@ -61,7 +61,7 @@ async def get_supplier(
     tags=[SUPPLIERS_TAG],
     summary="Atualizar fornecedor",
 )
-async def update_supplier(
+async def update_fornecedor(
     fornecedor_id: int,
     payload: FornecedorUpdate,
     db: AsyncSession = Depends(get_db),
@@ -76,7 +76,7 @@ async def update_supplier(
     tags=[SUPPLIERS_TAG],
     summary="Excluir fornecedor",
 )
-async def delete_supplier(
+async def delete_fornecedor(
     fornecedor_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),

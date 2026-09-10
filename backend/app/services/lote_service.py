@@ -45,20 +45,20 @@ class LoteService:
             localizacoes=[LoteLocalizacaoOut.model_validate(x) for x in localizacoes],
         )
 
-    async def _get_product(self, produto_id: int):
+    async def _get_produto(self, produto_id: int):
         produto = await self.produto_repo.get(produto_id)
         if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         return produto
 
     async def list(self, produto_id: int) -> list[LoteOut]:
-        await self._get_product(produto_id)
-        lotes = await self.repo.list_by_product(produto_id)
+        await self._get_produto(produto_id)
+        lotes = await self.repo.list_by_produto(produto_id)
         locais = await self.repo.localizacoes(produto_id)
         return [self._to_out(lote, locais.get(lote.id, [])) for lote in lotes]
 
     async def get(self, produto_id: int, lote_id: int) -> LoteOut:
-        await self._get_product(produto_id)
+        await self._get_produto(produto_id)
         lote = await self.repo.get(produto_id, lote_id)
         if lote is None:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
@@ -66,7 +66,7 @@ class LoteService:
         return self._to_out(lote, locais.get(lote.id, []))
 
     async def create(self, produto_id: int, data: LoteCreate) -> LoteOut:
-        produto = await self._get_product(produto_id)
+        produto = await self._get_produto(produto_id)
         if produto.perecivel and data.data_validade is None:
             raise HTTPException(
                 status_code=422,
@@ -86,7 +86,7 @@ class LoteService:
     async def update(
         self, produto_id: int, lote_id: int, data: LoteUpdate
     ) -> LoteOut:
-        produto = await self._get_product(produto_id)
+        produto = await self._get_produto(produto_id)
         lote = await self.repo.get(produto_id, lote_id)
         if lote is None:
             raise HTTPException(status_code=404, detail="Lote não encontrado")
@@ -122,7 +122,7 @@ class LoteService:
     async def delete(
         self, produto_id: int, lote_id: int, excluido_por: int | None
     ) -> None:
-        await self._get_product(produto_id)
+        await self._get_produto(produto_id)
         lote = await self.repo.get(produto_id, lote_id)
         if lote is None:
             raise HTTPException(status_code=404, detail="Lote não encontrado")

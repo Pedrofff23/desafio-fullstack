@@ -19,7 +19,7 @@ router = APIRouter(prefix="/usuarios", tags=[USERS_TAG])
     status_code=status.HTTP_200_OK,
     summary="Listar usuários",
 )
-async def list_users(
+async def list_usuarios(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     nome: str | None = None,
@@ -41,7 +41,7 @@ async def list_users(
         status.HTTP_409_CONFLICT: {"description": "E-mail já cadastrado"},
     },
 )
-async def create_user(
+async def create_usuario(
     payload: UsuarioCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
@@ -58,7 +58,7 @@ async def create_user(
         status.HTTP_404_NOT_FOUND: {"description": "Usuário não encontrado"},
     },
 )
-async def get_user(
+async def get_usuario(
     usuario_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
@@ -76,7 +76,7 @@ async def get_user(
         status.HTTP_409_CONFLICT: {"description": "E-mail já em uso por outro usuário"},
     },
 )
-async def update_user(
+async def update_usuario(
     usuario_id: int,
     payload: UsuarioUpdate,
     db: AsyncSession = Depends(get_db),
@@ -94,7 +94,7 @@ async def update_user(
         status.HTTP_404_NOT_FOUND: {"description": "Usuário não encontrado"},
     },
 )
-async def delete_user(
+async def delete_usuario(
     usuario_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),

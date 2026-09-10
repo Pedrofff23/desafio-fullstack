@@ -122,12 +122,12 @@ class ProdutoService:
             descricao=prateleira.descricao,
         )
 
-    async def _validate_food_references(
+    async def _validate_referencias_produto(
         self,
         ingredientes: list[ProdutoIngredienteInput],
         alergeno_ids: list[int],
     ) -> None:
-        validas = await self.repo.validate_food_references(
+        validas = await self.repo.validate_referencias_produto(
             {item.ingrediente_id for item in ingredientes}, set(alergeno_ids)
         )
         if not validas:
@@ -187,7 +187,7 @@ class ProdutoService:
     # ------------------------------------------------------------------
     # Catálogo
     # ------------------------------------------------------------------
-    async def get_catalog(self) -> ListaCatalogo:
+    async def get_catalogo(self) -> ListaCatalogo:
         unidades = await self.repo.list_unidades()
         categorias = await self.repo.list_categorias()
         localizacoes = await self.repo.list_localizacoes()
@@ -247,11 +247,11 @@ class ProdutoService:
         return PaginatedResponse.build(out, total, page, size)
 
     async def get(self, produto_id: int) -> ProdutoOut:
-        produto = await self.repo.get_com_relacionamentos(produto_id)
+        produto = await self.repo.get_with_relationship(produto_id)
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
-        saldos = await self.repo.get_product_balances([produto.id])
-        lotes_counts = await self.repo.count_product_lots([produto.id])
+        saldos = await self.repo.get_saldos_by_produtos([produto.id])
+        lotes_counts = await self.repo.count_lotes_by_produtos([produto.id])
         return self._enrich(
             produto,
             saldos.get(produto.id, 0.0),
@@ -271,7 +271,7 @@ class ProdutoService:
                 status_code=400,
                 detail="Unidade, categoria ou localização informada não existe",
             )
-        await self._validate_food_references(
+        await self._validate_referencias_produto(
             data.ingredientes, data.alergeno_ids
         )
         lote_inicial = data.lote_inicial
@@ -307,7 +307,7 @@ class ProdutoService:
         return await self.get(produto.id)
 
     async def update(self, produto_id: int, data: ProdutoUpdate) -> ProdutoOut:
-        produto = await self.repo.get_com_relacionamentos(produto_id)
+        produto = await self.repo.get_with_relationship(produto_id)
         if produto is None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         valores = data.model_dump(
@@ -336,7 +336,7 @@ class ProdutoService:
         alergeno_ids = (
             data.alergeno_ids if "alergeno_ids" in data.model_fields_set else None
         )
-        await self._validate_food_references(
+        await self._validate_referencias_produto(
             ingredientes or [], alergeno_ids or []
         )
         try:
@@ -362,7 +362,7 @@ class ProdutoService:
         produto = await self.repo.get_for_update(produto_id)
         if produto is None or produto.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
-        saldos = await self.repo.get_product_balances([produto_id])
+        saldos = await self.repo.get_saldos_by_produtos([produto_id])
         if saldos.get(produto_id, 0) > 0:
             raise HTTPException(
                 status_code=409,

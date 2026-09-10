@@ -20,7 +20,7 @@ router = APIRouter(prefix="/produtos/{produto_id}/lotes")
     tags=[LOTS_TAG],
     summary="Listar lotes de um produto",
 )
-async def list_lots(
+async def list_lotes(
     produto_id: int,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
@@ -35,7 +35,7 @@ async def list_lots(
     tags=[LOTS_TAG],
     summary="Cadastrar lote de um produto",
 )
-async def create_lot(
+async def create_lote(
     produto_id: int,
     payload: LoteCreate,
     db: AsyncSession = Depends(get_db),
@@ -50,7 +50,7 @@ async def create_lot(
     tags=[LOTS_TAG],
     summary="Obter lote de um produto",
 )
-async def get_lot(
+async def get_lote(
     produto_id: int,
     lote_id: int,
     db: AsyncSession = Depends(get_db),
@@ -65,7 +65,7 @@ async def get_lot(
     tags=[LOTS_TAG],
     summary="Atualizar lote de um produto",
 )
-async def update_lot(
+async def update_lote(
     produto_id: int,
     lote_id: int,
     payload: LoteUpdate,
@@ -81,7 +81,7 @@ async def update_lot(
     tags=[LOTS_TAG],
     summary="Excluir lote de um produto",
 )
-async def delete_lot(
+async def delete_lote(
     produto_id: int,
     lote_id: int,
     db: AsyncSession = Depends(get_db),

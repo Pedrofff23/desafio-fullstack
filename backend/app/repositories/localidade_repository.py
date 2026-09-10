@@ -20,7 +20,7 @@ class LocalidadeRepository(BaseRepository[Estado]):
     async def list_estados(self) -> list[Estado]:
         return await self.list_all(exclude_deleted=False)
 
-    async def list_cidades_por_estado(self, estado_id: int) -> list[Cidade]:
+    async def list_cidades_by_estado(self, estado_id: int) -> list[Cidade]:
         result = await self.session.execute(
             select(Cidade).where(Cidade.uf == estado_id).order_by(Cidade.nome)
         )
@@ -32,7 +32,7 @@ class LocalidadeRepository(BaseRepository[Estado]):
     async def get_estado(self, estado_id: int) -> Estado | None:
         return await self.session.get(Estado, estado_id)
 
-    async def city_belongs_to_state(self, cidade_id: int, estado_id: int) -> bool:
+    async def validate_cidade_belongs_to_estado(self, cidade_id: int, estado_id: int) -> bool:
         result = await self.session.execute(
             select(Cidade.id).where(Cidade.id == cidade_id, Cidade.uf == estado_id)
         )

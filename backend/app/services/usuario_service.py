@@ -42,8 +42,8 @@ class UsuarioService:
     # ------------------------------------------------------------------
     # Validações de FK
     # ------------------------------------------------------------------
-    async def _validate_address(self, endereco: EnderecoIn) -> None:
-        await self.localidade_service.validar_cidade_pertence_ao_estado(
+    async def _validate_endereco(self, endereco: EnderecoIn) -> None:
+        await self.localidade_service.validate_cidade_belongs_to_estado(
             endereco.cidade_id, endereco.estado_id
         )
 
@@ -65,13 +65,13 @@ class UsuarioService:
         return PaginatedResponse.build(out, total, page, size)
 
     async def get(self, usuario_id: int) -> UsuarioOut:
-        usuario = await self._carregar_model(usuario_id)
+        usuario = await self._load_model(usuario_id)
         if usuario is None or usuario.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
         return self._to_out(usuario)
 
-    async def _carregar_model(self, usuario_id: int) -> Usuario | None:
-        return await self.repo.get_com_relacionamentos(usuario_id)
+    async def _load_model(self, usuario_id: int) -> Usuario | None:
+        return await self.repo.get_with_relationship(usuario_id)
 
     # ------------------------------------------------------------------
     # Criação (transacional)
@@ -80,7 +80,7 @@ class UsuarioService:
         self, data: UsuarioCreate, created_by: int | None = None
     ) -> UsuarioOut:
         await self._validate_unique_email(data.email)
-        await self._validate_address(data.endereco)
+        await self._validate_endereco(data.endereco)
 
         # Endereço e Contato
         endereco = Endereco(**data.endereco.model_dump(exclude={"estado_id"}))
@@ -113,7 +113,7 @@ class UsuarioService:
                 detail="E-mail, contato ou endereço já cadastrado",
             ) from exc
 
-        usuario_carregado = await self._carregar_model(usuario.id)
+        usuario_carregado = await self._load_model(usuario.id)
         if usuario_carregado is None:
             raise HTTPException(
                 status_code=404, detail="Usuário não encontrado após cadastro"
@@ -126,7 +126,7 @@ class UsuarioService:
     async def update(
         self, usuario_id: int, data: UsuarioUpdate, atualizado_por: int | None = None
     ) -> UsuarioOut:
-        usuario = await self._carregar_model(usuario_id)
+        usuario = await self._load_model(usuario_id)
         if usuario is None or usuario.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
@@ -151,7 +151,7 @@ class UsuarioService:
                 setattr(funcionario.contato, k, v)
 
         if data.endereco is not None:
-            await self._validate_address(data.endereco)
+            await self._validate_endereco(data.endereco)
             for k, v in data.endereco.model_dump(exclude={"estado_id"}).items():
                 setattr(funcionario.endereco, k, v)
 
@@ -164,7 +164,7 @@ class UsuarioService:
                 detail="E-mail, contato ou endereço já cadastrado",
             ) from exc
 
-        usuario_carregado = await self._carregar_model(usuario_id)
+        usuario_carregado = await self._load_model(usuario_id)
         if usuario_carregado is None:
             raise HTTPException(
                 status_code=404, detail="Usuário não encontrado após atualização"
@@ -175,7 +175,7 @@ class UsuarioService:
     # Exclusão (soft delete em cascata)
     # ------------------------------------------------------------------
     async def delete(self, usuario_id: int, deleted_by: int | None = None) -> None:
-        usuario = await self._carregar_model(usuario_id)
+        usuario = await self._load_model(usuario_id)
         if usuario is None or usuario.excluido_em is not None:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
         agora = datetime.now(UTC)

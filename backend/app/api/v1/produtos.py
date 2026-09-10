@@ -20,10 +20,10 @@ router = APIRouter(prefix="/produtos")
     tags=[CATALOGS_TAG],
     summary="Listar dados auxiliares de produtos",
 )
-async def get_catalog(
+async def get_catalogo(
     db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
 ) -> ListaCatalogo:
-    return await ProdutoService(db).get_catalog()
+    return await ProdutoService(db).get_catalogo()
 
 
 @router.get(
@@ -38,7 +38,7 @@ async def get_catalog(
         },
     },
 )
-async def list_products(
+async def list_produtos(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     nome: str | None = None,
@@ -69,7 +69,7 @@ async def list_products(
         status.HTTP_409_CONFLICT: {"description": "Código de produto já existe"},
     },
 )
-async def create_product(
+async def create_produto(
     payload: ProdutoCreate,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),
@@ -90,7 +90,7 @@ async def create_product(
         status.HTTP_404_NOT_FOUND: {"description": "Produto não encontrado"},
     },
 )
-async def get_product(
+async def get_produto(
     produto_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)
 ) -> ProdutoOut:
     return await ProdutoService(db).get(produto_id)
@@ -107,7 +107,7 @@ async def get_product(
         status.HTTP_409_CONFLICT: {"description": "Código já em uso por outro produto"},
     },
 )
-async def update_product(
+async def update_produto(
     produto_id: int,
     payload: ProdutoUpdate,
     db: AsyncSession = Depends(get_db),
@@ -129,7 +129,7 @@ async def update_product(
         },
     },
 )
-async def delete_product(
+async def delete_produto(
     produto_id: int,
     db: AsyncSession = Depends(get_db),
     current: Usuario = Depends(get_current_user),

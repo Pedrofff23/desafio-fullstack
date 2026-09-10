@@ -58,7 +58,7 @@ class UsuarioRepository(BaseRepository[Usuario]):
         total_count = int(total.scalar() or 0)
         return itens, total_count
 
-    async def get_com_relacionamentos(self, usuario_id: int) -> Usuario | None:
+    async def get_with_relationship(self, usuario_id: int) -> Usuario | None:
         """Carrega o usuário com todas as relações de funcionário, endereço e contato."""
         stmt = (
             select(Usuario)

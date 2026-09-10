@@ -1,6 +1,5 @@
 """Service transacional do CRUD de fornecedores."""
 
-from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -9,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.fornecedor import Fornecedor
 from app.models.localidade import Contato, Endereco
 from app.repositories.fornecedor_repository import FornecedorRepository
-from app.services.localidade_service import LocalidadeService
 from app.schemas.fornecedor import FornecedorCreate, FornecedorOut, FornecedorUpdate
+from app.services.localidade_service import LocalidadeService
 
 
 class FornecedorService:
@@ -19,8 +18,8 @@ class FornecedorService:
         self.repo = FornecedorRepository(session)
         self.localidade_service = LocalidadeService(session)
 
-    async def _validate_address(self, cidade_id: int, estado_id: int) -> None:
-        await self.localidade_service.validate_city_belongs_to_state(
+    async def _validate_endereco(self, cidade_id: int, estado_id: int) -> None:
+        await self.localidade_service.validate_cidade_belongs_to_estado(
             cidade_id, estado_id
         )
 
@@ -38,7 +37,7 @@ class FornecedorService:
         return self._to_out(fornecedor)
 
     async def create(self, data: FornecedorCreate) -> FornecedorOut:
-        await self._validate_address(data.endereco.cidade_id, data.endereco.estado_id)
+        await self._validate_endereco(data.endereco.cidade_id, data.endereco.estado_id)
         fornecedor = Fornecedor(
             nome_empresa=data.nome_empresa,
             contato=Contato(**data.contato.model_dump()),
@@ -70,7 +69,7 @@ class FornecedorService:
             for campo, valor in data.contato.model_dump().items():
                 setattr(fornecedor.contato, campo, valor)
         if data.endereco is not None:
-            await self._validate_address(
+            await self._validate_endereco(
                 data.endereco.cidade_id, data.endereco.estado_id
             )
             for campo, valor in data.endereco.model_dump(exclude={"estado_id"}).items():

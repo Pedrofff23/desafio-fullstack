@@ -42,7 +42,7 @@ class ProdutoRepository(BaseRepository[Produto]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_com_relacionamentos(self, produto_id: int) -> Produto | None:
+    async def get_with_relationship(self, produto_id: int) -> Produto | None:
         result = await self.session.execute(
             select(Produto)
             .where(Produto.id == produto_id, Produto.excluido_em.is_(None))
@@ -135,7 +135,7 @@ class ProdutoRepository(BaseRepository[Produto]):
         result = await self.session.execute(stmt)
         produtos = list(result.scalars().unique().all())
 
-        lotes_counts = await self.count_product_lots(p_ids)
+        lotes_counts = await self.count_lotes_by_produtos(p_ids)
         return produtos, total, saldos, lotes_counts
 
     async def validate_references(
@@ -178,7 +178,7 @@ class ProdutoRepository(BaseRepository[Produto]):
         result = await self.session.execute(select(Alergeno).order_by(Alergeno.nome))
         return list(result.scalars().all())
 
-    async def validate_food_references(
+    async def validate_referencias_produto(
         self, ingrediente_ids: set[int], alergeno_ids: set[int]
     ) -> bool:
         if ingrediente_ids:
@@ -205,7 +205,7 @@ class ProdutoRepository(BaseRepository[Produto]):
     async def get_localizacao(self, localizacao_id: int) -> LocalizacaoEstoque | None:
         return await self.session.get(LocalizacaoEstoque, localizacao_id)
 
-    async def get_product_balances(self, produto_ids: list[int]) -> dict[int, float]:
+    async def get_saldos_by_produtos(self, produto_ids: list[int]) -> dict[int, float]:
         """Retorna o saldo total dos produtos sem criar outra fonte de verdade."""
         if not produto_ids:
             return {}
@@ -220,7 +220,7 @@ class ProdutoRepository(BaseRepository[Produto]):
         )
         return {int(row[0]): float(row[1]) for row in saldos_rows.fetchall()}
 
-    async def count_product_lots(self, produto_ids: list[int]) -> dict[int, int]:
+    async def count_lotes_by_produtos(self, produto_ids: list[int]) -> dict[int, int]:
         """Retorna a contagem de lotes não excluídos de cada produto."""
         if not produto_ids:
             return {}
