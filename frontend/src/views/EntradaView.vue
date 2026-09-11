@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader.vue';
 import type { CatalogoProduto, Fornecedor, Localizacao, Lote, LoteInput, Produto, RegistroEntradaCreate } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { toIsoDateTime } from '@/utils/formatters';
+import { scrollToError } from '@/utils/scroll';
 
 function emptyForm(): RegistroEntradaCreate {
   return {
@@ -78,6 +79,16 @@ export default defineComponent({
         this.lots = [];
         this.form.preco_custo = 0;
       }
+    },
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
+      }
+    },
+    newLotError(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.newLotErrorAlert as any);
+      }
     }
   },
   async mounted() {
@@ -120,10 +131,12 @@ export default defineComponent({
     async createNewLot() {
       if (!this.productId || !this.newLotForm.numero_lote.trim() || !this.newLotForm.data_producao) {
         this.newLotError = 'Informe o número e a data de produção do lote.';
+        void scrollToError(this.$refs.newLotErrorAlert as any);
         return;
       }
       if (this.selectedProduct?.perecivel && !this.newLotForm.data_validade) {
         this.newLotError = 'Produtos perecíveis exigem data de validade.';
+        void scrollToError(this.$refs.newLotErrorAlert as any);
         return;
       }
       this.newLotLoading = true;
@@ -139,6 +152,7 @@ export default defineComponent({
         this.success = `Lote "${created.numero_lote}" cadastrado e selecionado com sucesso.`;
       } catch (error) {
         this.newLotError = getErrorMessage(error);
+        void scrollToError(this.$refs.newLotErrorAlert as any);
       } finally {
         this.newLotLoading = false;
       }
@@ -148,6 +162,7 @@ export default defineComponent({
       this.success = '';
       if (!this.productId || !this.form.lote_id || !this.form.fornecedor_id || this.form.quantidade <= 0) {
         this.error = 'Selecione produto, lote e fornecedor e informe uma quantidade válida.';
+        void scrollToError(this.$refs.errorAlert as any);
         return;
       }
       this.saving = true;
@@ -165,6 +180,7 @@ export default defineComponent({
         this.success = 'Entrada registrada com sucesso.';
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.errorAlert as any);
       } finally {
         this.saving = false;
       }
@@ -176,7 +192,7 @@ export default defineComponent({
 <template>
   <div>
     <PageHeader title="Registrar entrada" subtitle="Adicione itens ao estoque com origem, lote e custo rastreáveis." />
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
       {{ success }}
     </v-alert>
@@ -312,7 +328,7 @@ export default defineComponent({
           </div>
         </v-card-title>
         <v-card-text class="pt-0">
-          <v-alert v-if="newLotError" type="error" variant="tonal" density="compact" class="mb-4">
+          <v-alert v-if="newLotError" ref="newLotErrorAlert" type="error" variant="tonal" density="compact" class="mb-4">
             {{ newLotError }}
           </v-alert>
 

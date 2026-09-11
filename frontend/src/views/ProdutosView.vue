@@ -13,6 +13,7 @@ import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { CatalogoProduto, Lote, LoteInput, LoteValidadeStatus, Produto, ProdutoStatus } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDate, formatQuantity } from '@/utils/formatters';
+import { scrollToError } from '@/utils/scroll';
 
 type LotFilter = 'todos' | 'com_estoque' | LoteValidadeStatus;
 
@@ -109,6 +110,12 @@ export default defineComponent({
   watch: {
     lotFilter() {
       this.lotPage = 1;
+    },
+    error(val: string) {
+      if (val) {
+        const target = this.lotDialog ? this.$refs.lotErrorAlert : this.$refs.pageErrorAlert;
+        void scrollToError(target as any);
+      }
     }
   },
   methods: {
@@ -239,6 +246,7 @@ export default defineComponent({
         await this.load();
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.lotErrorAlert as any);
       } finally {
         this.lotLoading = false;
       }
@@ -246,10 +254,12 @@ export default defineComponent({
     async createLot() {
       if (!this.selectedProduct || !this.lotForm.numero_lote || !this.lotForm.data_producao) {
         this.error = 'Informe o número e a data de produção do lote.';
+        void scrollToError(this.$refs.lotErrorAlert as any);
         return;
       }
       if (this.selectedProduct.perecivel && !this.lotForm.data_validade) {
         this.error = 'Produtos perecíveis exigem data de validade.';
+        void scrollToError(this.$refs.lotErrorAlert as any);
         return;
       }
       this.lotLoading = true;
@@ -267,6 +277,7 @@ export default defineComponent({
         await this.load();
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.lotErrorAlert as any);
       } finally {
         this.lotLoading = false;
       }
@@ -283,7 +294,17 @@ export default defineComponent({
       </template>
     </PageHeader>
 
-    <v-alert v-if="error" type="error" variant="tonal" closable class="mb-4" @click:close="error = ''">{{ error }}</v-alert>
+    <v-alert
+      v-if="error && !lotDialog"
+      ref="pageErrorAlert"
+      type="error"
+      variant="tonal"
+      closable
+      class="mb-4"
+      @click:close="error = ''"
+    >
+      {{ error }}
+    </v-alert>
     <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
       {{ success }}
     </v-alert>
@@ -359,28 +380,13 @@ export default defineComponent({
               title="Visualizar lotes"
               @click="openLots(item)"
             />
-            <v-btn
-              :to="`/produtos/${item.id}/editar`"
-              icon="mdi-pencil-outline"
-              size="small"
-              variant="text"
-              title="Editar"
-            />
-            <v-btn
-              icon="mdi-delete-outline"
-              size="small"
-              variant="text"
-              color="error"
-              title="Excluir"
-              @click="remove(item)"
-            />
+            <v-btn :to="`/produtos/${item.id}/editar`" icon="mdi-pencil-outline" size="small" variant="text" title="Editar" />
+            <v-btn icon="mdi-delete-outline" size="small" variant="text" color="error" title="Excluir" @click="remove(item)" />
           </div>
         </template>
 
         <template #no-data>
-          <div class="pa-4 text-center text-medium-emphasis">
-            Nenhum produto encontrado.
-          </div>
+          <div class="pa-4 text-center text-medium-emphasis">Nenhum produto encontrado.</div>
         </template>
       </v-data-table-server>
     </v-card>
@@ -395,6 +401,17 @@ export default defineComponent({
           </span>
         </v-card-title>
         <v-card-text>
+          <v-alert
+            v-if="error && lotDialog"
+            ref="lotErrorAlert"
+            type="error"
+            variant="tonal"
+            closable
+            class="mb-4"
+            @click:close="error = ''"
+          >
+            {{ error }}
+          </v-alert>
           <v-progress-linear v-if="lotLoading" color="primary" indeterminate class="mb-4" />
           <div class="d-flex flex-wrap ga-2 mb-4">
             <v-btn

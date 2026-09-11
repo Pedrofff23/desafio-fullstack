@@ -4,6 +4,7 @@ import { mapStores } from 'pinia';
 
 import { useAuthStore } from '@/stores/auth';
 import { getErrorMessage } from '@/utils/errors';
+import { scrollToError } from '@/utils/scroll';
 
 export default defineComponent({
   name: 'LoginView',
@@ -18,11 +19,19 @@ export default defineComponent({
   computed: {
     ...mapStores(useAuthStore)
   },
+  watch: {
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
+      }
+    }
+  },
   methods: {
     async submit() {
       this.error = '';
       if (!this.email || !this.senha) {
         this.error = 'Informe e-mail e senha.';
+        void scrollToError(this.$refs.errorAlert as any);
         return;
       }
       try {
@@ -31,6 +40,7 @@ export default defineComponent({
         await this.$router.replace(redirect);
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.errorAlert as any);
       }
     }
   }
@@ -56,7 +66,7 @@ export default defineComponent({
             <h1 class="text-h4 font-weight-bold mb-2">Boas-vindas</h1>
             <p class="text-body-1 text-medium-emphasis mb-7">Entre para acompanhar produtos e movimentações.</p>
 
-            <v-alert v-if="error" type="error" variant="tonal" class="mb-5">
+            <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-5">
               {{ error }}
             </v-alert>
 

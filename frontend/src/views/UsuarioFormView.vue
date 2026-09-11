@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader.vue';
 import type { UsuarioCreate, UsuarioUpdate } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { createAddressInput, createContactInput, normalizeAddressInput, normalizeContactInput } from '@/utils/formFields';
+import { scrollToError } from '@/utils/scroll';
 
 interface UsuarioFormState extends UsuarioCreate {
   ativo: boolean;
@@ -43,6 +44,13 @@ export default defineComponent({
     },
     title(): string {
       return this.editing ? 'Editar usuário' : 'Novo usuário';
+    }
+  },
+  watch: {
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
+      }
     }
   },
   mounted() {
@@ -102,7 +110,10 @@ export default defineComponent({
     },
     async submit() {
       this.error = '';
-      if (!this.validate()) return;
+      if (!this.validate()) {
+        void scrollToError(this.$refs.errorAlert as any);
+        return;
+      }
       this.saving = true;
       try {
         if (this.editing && this.usuarioId) {
@@ -130,6 +141,7 @@ export default defineComponent({
         await this.$router.push('/usuarios');
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.errorAlert as any);
       } finally {
         this.saving = false;
       }
@@ -142,7 +154,7 @@ export default defineComponent({
   <div>
     <PageHeader :title="title" subtitle="Dados de acesso, contato e endereço do funcionário." />
 
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-progress-linear v-if="loading" color="primary" indeterminate class="mb-4" />
 
     <v-card v-if="!loading" class="data-card pa-5 pa-md-7">

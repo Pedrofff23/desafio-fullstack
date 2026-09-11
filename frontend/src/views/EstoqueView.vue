@@ -13,6 +13,7 @@ import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { CatalogoProduto, EstoqueProduto, Lote, LoteValidadeStatus, Produto } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatDate, formatQuantity } from '@/utils/formatters';
+import { scrollToError } from '@/utils/scroll';
 
 type LotFilter = 'todos' | 'com_estoque' | LoteValidadeStatus;
 
@@ -84,6 +85,11 @@ export default defineComponent({
   watch: {
     lotFilter() {
       this.lotPage = 1;
+    },
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
+      }
     }
   },
   methods: {
@@ -188,7 +194,7 @@ export default defineComponent({
       </template>
     </PageHeader>
 
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
     <SearchFilterCard
       v-model="searchQuery"

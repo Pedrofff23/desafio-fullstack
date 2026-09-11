@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader.vue';
 import type { EstoqueEntrada, Lote, Produto, RegistroSaidaCreate } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatQuantity, toIsoDateTime } from '@/utils/formatters';
+import { scrollToError } from '@/utils/scroll';
 
 function emptyForm(): RegistroSaidaCreate {
   return { entrada_id: null, quantidade: 1, data_saida: null, tipo_saida: 'venda', preco_venda: 0 };
@@ -46,6 +47,11 @@ export default defineComponent({
       } else {
         this.entries = [];
         this.lots = [];
+      }
+    },
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
       }
     }
   },
@@ -86,10 +92,12 @@ export default defineComponent({
       this.success = '';
       if (!this.productId || !this.form.entrada_id || this.form.quantidade <= 0) {
         this.error = 'Selecione o produto e a entrada e informe uma quantidade válida.';
+        void scrollToError(this.$refs.errorAlert as any);
         return;
       }
       if (this.selectedEntry && this.form.quantidade > this.selectedEntry.quantidade) {
         this.error = `Saldo insuficiente. Disponível: ${formatQuantity(this.selectedEntry.quantidade)}.`;
+        void scrollToError(this.$refs.errorAlert as any);
         return;
       }
       this.saving = true;
@@ -106,6 +114,7 @@ export default defineComponent({
         this.success = 'Saída registrada com sucesso.';
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.errorAlert as any);
         if (this.productId) await this.loadEntries(this.productId);
       } finally {
         this.saving = false;
@@ -118,7 +127,7 @@ export default defineComponent({
 <template>
   <div>
     <PageHeader title="Registrar saída" subtitle="Retire itens de uma entrada que ainda possui saldo disponível." />
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
       {{ success }}
     </v-alert>

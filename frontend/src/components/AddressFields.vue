@@ -5,6 +5,7 @@ import { geoApi } from '@/api/geo';
 import type { Cidade, EnderecoInput, Estado } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatCepInput } from '@/utils/formatters';
+import { scrollToError } from '@/utils/scroll';
 
 export default defineComponent({
   name: 'AddressFields',
@@ -48,6 +49,11 @@ export default defineComponent({
         this.localAddress.cidade_id = null;
         if (value) void this.loadCities(value);
         else this.cidades = [];
+      }
+    },
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
       }
     }
   },
@@ -139,7 +145,7 @@ export default defineComponent({
       <v-text-field v-model="localAddress.complemento" label="Complemento" />
     </v-col>
     <v-col v-if="error" cols="12">
-      <v-alert type="error" variant="tonal" closable @click:close="error = ''">
+      <v-alert ref="errorAlert" type="error" variant="tonal" closable @click:close="error = ''">
         {{ error }}
       </v-alert>
     </v-col>

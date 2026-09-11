@@ -8,6 +8,7 @@ import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Usuario } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatContact } from '@/utils/formatters';
+import { scrollToError } from '@/utils/scroll';
 
 export default defineComponent({
   name: 'UsuariosView',
@@ -33,6 +34,13 @@ export default defineComponent({
       error: '',
       success: ''
     };
+  },
+  watch: {
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
+      }
+    }
   },
   methods: {
     formatContact,
@@ -78,6 +86,7 @@ export default defineComponent({
         await this.load();
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.errorAlert as any);
       }
     }
   }
@@ -92,7 +101,7 @@ export default defineComponent({
       </template>
     </PageHeader>
 
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
       {{ success }}
     </v-alert>
@@ -140,28 +149,13 @@ export default defineComponent({
 
         <template #item.actions="{ item }">
           <div class="table-actions">
-            <v-btn
-              :to="`/usuarios/${item.id}/editar`"
-              icon="mdi-pencil-outline"
-              size="small"
-              variant="text"
-              title="Editar"
-            />
-            <v-btn
-              icon="mdi-delete-outline"
-              size="small"
-              variant="text"
-              color="error"
-              title="Excluir"
-              @click="remove(item)"
-            />
+            <v-btn :to="`/usuarios/${item.id}/editar`" icon="mdi-pencil-outline" size="small" variant="text" title="Editar" />
+            <v-btn icon="mdi-delete-outline" size="small" variant="text" color="error" title="Excluir" @click="remove(item)" />
           </div>
         </template>
 
         <template #no-data>
-          <div class="pa-4 text-center text-medium-emphasis">
-            Nenhum usuário encontrado.
-          </div>
+          <div class="pa-4 text-center text-medium-emphasis">Nenhum usuário encontrado.</div>
         </template>
       </v-data-table-server>
     </v-card>

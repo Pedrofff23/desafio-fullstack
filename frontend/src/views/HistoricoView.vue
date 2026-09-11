@@ -10,6 +10,7 @@ import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import type { Movimento, Produto, Usuario } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatCurrency, formatDateTime, formatQuantity } from '@/utils/formatters';
+import { scrollToError } from '@/utils/scroll';
 
 export default defineComponent({
   name: 'HistoricoView',
@@ -51,6 +52,13 @@ export default defineComponent({
         title: `${user.funcionario.nome_completo} · ${user.email}`,
         value: user.funcionario.id
       }));
+    }
+  },
+  watch: {
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
+      }
     }
   },
   async mounted() {
@@ -114,15 +122,9 @@ export default defineComponent({
 <template>
   <div>
     <PageHeader title="Histórico de movimentações" subtitle="Auditoria de entradas e saídas, sem alteração ou exclusão." />
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
-    <SearchFilterCard
-      grid
-      hide-search-input
-      :loading="loading"
-      @search="search"
-      @clear="clearFilters"
-    >
+    <SearchFilterCard grid hide-search-input :loading="loading" @search="search" @clear="clearFilters">
       <v-col cols="12" md="4">
         <v-autocomplete
           v-model="filters.produto_id"
@@ -218,9 +220,7 @@ export default defineComponent({
         </template>
 
         <template #no-data>
-          <div class="pa-4 text-center text-medium-emphasis">
-            Nenhuma movimentação encontrada.
-          </div>
+          <div class="pa-4 text-center text-medium-emphasis">Nenhuma movimentação encontrada.</div>
         </template>
       </v-data-table-server>
     </v-card>
