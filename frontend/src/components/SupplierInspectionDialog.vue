@@ -273,6 +273,15 @@ export default defineComponent({
           <v-btn variant="text" color="grey-darken-1" @click="close">Fechar</v-btn>
           <v-spacer />
           <v-btn color="primary" prepend-icon="mdi-pencil-outline" variant="flat" @click="onEdit">Editar fornecedor</v-btn>
+          <v-btn
+            :to="`/fornecedores/${supplier.id}/editar`"
+            color="primary"
+            prepend-icon="mdi-pencil-outline"
+            variant="flat"
+            @click="close"
+          >
+            Editar fornecedor
+          </v-btn>
         </v-card-actions>
       </template>
     </v-card>

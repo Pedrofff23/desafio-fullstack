@@ -46,6 +46,16 @@ const router = createRouter({
           component: () => import('@/views/FornecedoresView.vue')
         },
         {
+          path: 'fornecedores/novo',
+          name: 'fornecedor-novo',
+          component: () => import('@/views/FornecedorFormView.vue')
+        },
+        {
+          path: 'fornecedores/:id/editar',
+          name: 'fornecedor-editar',
+          component: () => import('@/views/FornecedorFormView.vue')
+        },
+        {
           path: 'movimentacoes/entrada',
           name: 'entrada',
           component: () => import('@/views/EntradaView.vue')

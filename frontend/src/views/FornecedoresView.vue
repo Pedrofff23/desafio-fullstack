@@ -3,32 +3,18 @@ import { defineComponent } from 'vue';
 
 import { transacoesApi } from '@/api/transacoes';
 import ActiveStatusChip from '@/components/ActiveStatusChip.vue';
-import AddressFields from '@/components/AddressFields.vue';
-import ContactFields from '@/components/ContactFields.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SearchFilterCard from '@/components/SearchFilterCard.vue';
 import SupplierInspectionDialog from '@/components/SupplierInspectionDialog.vue';
-import type { Fornecedor, FornecedorCreate } from '@/types/api';
+import type { Fornecedor } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatContact, formatDateTime } from '@/utils/formatters';
-import { createAddressInput, createContactInput, normalizeAddressInput, normalizeContactInput } from '@/utils/formFields';
 import { scrollToError } from '@/utils/scroll';
-
-function emptyForm(): FornecedorCreate {
-  return {
-    nome_empresa: '',
-    ativo: true,
-    contato: createContactInput(),
-    endereco: createAddressInput()
-  };
-}
 
 export default defineComponent({
   name: 'FornecedoresView',
   components: {
     ActiveStatusChip,
-    AddressFields,
-    ContactFields,
     PageHeader,
     SearchFilterCard,
     SupplierInspectionDialog
@@ -47,13 +33,9 @@ export default defineComponent({
       pageSizeOptions: [10, 20, 50, 100],
       page: 1,
       size: 20,
-      form: emptyForm(),
-      dialog: false,
       inspectDialog: false,
       selected: null as Fornecedor | null,
-      editingId: null as number | null,
       loading: false,
-      saving: false,
       error: '',
       success: ''
     };
@@ -76,8 +58,7 @@ export default defineComponent({
     },
     error(val: string) {
       if (val) {
-        const target = this.dialog ? this.$refs.dialogErrorAlert : this.$refs.pageErrorAlert;
-        void scrollToError(target as any);
+        void scrollToError(this.$refs.pageErrorAlert as any);
       }
     }
   },
@@ -105,24 +86,9 @@ export default defineComponent({
       this.searchQuery = '';
       this.page = 1;
     },
-    openForm() {
-      this.editingId = null;
-      this.form = emptyForm();
-      this.dialog = true;
-    },
     inspect(supplier: Fornecedor) {
       this.selected = supplier;
       this.inspectDialog = true;
-    },
-    edit(supplier: Fornecedor) {
-      this.editingId = supplier.id;
-      this.form = {
-        nome_empresa: supplier.nome_empresa,
-        ativo: supplier.ativo,
-        contato: createContactInput(supplier.contato),
-        endereco: createAddressInput(supplier.endereco)
-      };
-      this.dialog = true;
     },
     async remove(supplier: Fornecedor) {
       const confirmed = window.confirm(`Deseja excluir o fornecedor ${supplier.nome_empresa}?`);
@@ -136,38 +102,6 @@ export default defineComponent({
       } catch (error) {
         this.error = getErrorMessage(error);
       }
-    },
-    async submit() {
-      if (!this.form.nome_empresa.trim()) {
-        this.error = 'O nome da empresa é obrigatório.';
-        void scrollToError(this.$refs.dialogErrorAlert as any);
-        return;
-      }
-      this.saving = true;
-      this.error = '';
-      this.success = '';
-      try {
-        const payload: FornecedorCreate = {
-          nome_empresa: this.form.nome_empresa.trim(),
-          ativo: this.form.ativo,
-          contato: normalizeContactInput(this.form.contato),
-          endereco: normalizeAddressInput(this.form.endereco)
-        };
-        if (this.editingId) {
-          await transacoesApi.updateFornecedor(this.editingId, payload);
-          this.success = 'Fornecedor atualizado com sucesso.';
-        } else {
-          await transacoesApi.createFornecedor(payload);
-          this.success = 'Fornecedor cadastrado com sucesso.';
-        }
-        this.dialog = false;
-        await this.load();
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        void scrollToError(this.$refs.dialogErrorAlert as any);
-      } finally {
-        this.saving = false;
-      }
     }
   }
 });
@@ -177,10 +111,10 @@ export default defineComponent({
   <div>
     <PageHeader title="Fornecedores" subtitle="Empresas disponíveis para registrar entradas.">
       <template #actions>
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="openForm">Novo fornecedor</v-btn>
+        <v-btn color="primary" prepend-icon="mdi-plus" to="/fornecedores/novo">Novo fornecedor</v-btn>
       </template>
     </PageHeader>
-    <v-alert v-if="error && !dialog" ref="pageErrorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="pageErrorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
       {{ success }}
     </v-alert>
@@ -229,7 +163,13 @@ export default defineComponent({
               title="Inspecionar fornecedor"
               @click="inspect(item)"
             />
-            <v-btn icon="mdi-pencil-outline" size="small" variant="text" title="Editar fornecedor" @click="edit(item)" />
+            <v-btn
+              icon="mdi-pencil-outline"
+              size="small"
+              variant="text"
+              title="Editar fornecedor"
+              :to="`/fornecedores/${item.id}/editar`"
+            />
             <v-btn
               icon="mdi-delete-outline"
               color="error"
@@ -249,40 +189,6 @@ export default defineComponent({
       </v-data-table>
     </v-card>
 
-    <v-dialog v-model="dialog" max-width="900" persistent>
-      <v-card>
-        <v-card-title class="pa-5">{{ editingId ? 'Editar fornecedor' : 'Novo fornecedor' }}</v-card-title>
-        <v-card-text>
-          <v-alert v-if="error" ref="dialogErrorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
-          <v-form @submit.prevent="submit">
-            <v-row>
-              <v-col cols="12" md="8">
-                <v-text-field
-                  v-model.trim="form.nome_empresa"
-                  label="Nome da empresa"
-                  required
-                  :rules="[(v) => !!v || 'Nome da empresa é obrigatório']"
-                />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-switch v-model="form.ativo" color="primary" label="Fornecedor ativo" inset />
-              </v-col>
-              <v-col cols="12"><ContactFields v-model="form.contato" /></v-col>
-              <v-col cols="12"><v-divider class="my-2" /></v-col>
-              <v-col cols="12"><AddressFields v-model="form.endereco" /></v-col>
-            </v-row>
-          </v-form>
-        </v-card-text>
-        <v-card-actions class="pa-5 pt-0">
-          <v-spacer />
-          <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-          <v-btn color="primary" :loading="saving" @click="submit">
-            {{ editingId ? 'Salvar alterações' : 'Cadastrar' }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <SupplierInspectionDialog v-model="inspectDialog" :supplier="selected" @edit="edit" />
+    <SupplierInspectionDialog v-model="inspectDialog" :supplier="selected" />
   </div>
 </template>
