@@ -23,7 +23,7 @@ async def test_catalogo_produtos_retorna_dados_necessarios(
 async def test_criar_produto_perecivel_sem_validade_retorna_422(
     client: AsyncClient, auth_headers: dict[str, str], test_database: dict
 ):
-    """Regra de negócio: Produto perecível exige lote inicial com data de validade."""
+    """Regra de negócio: Produto perecível com lote inicial exige data de validade."""
     payload = {
         "codigo": "P-PERECIVEL-SEM-VALIDADE",
         "nome": "Iogurte Natural",
@@ -32,10 +32,36 @@ async def test_criar_produto_perecivel_sem_validade_retorna_422(
         "unidade_medida_id": test_database["unidade_id"],
         "categoria_id": test_database["categoria_id"],
         "localizacao_id": test_database["localizacao_id"],
-        # Sem lote_inicial
+        "lote_inicial": {
+            "numero_lote": "LOTE-SEM-VAL",
+            "data_producao": str(date.today()),
+            "data_validade": None,
+        },
     }
     response = await client.post("/api/v1/produtos", json=payload, headers=auth_headers)
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_criar_produto_perecivel_sem_lote_inicial_sucesso(
+    client: AsyncClient, auth_headers: dict[str, str], test_database: dict
+):
+    """Regra de negócio: Produto perecível pode ser cadastrado sem lote inicial."""
+    payload = {
+        "codigo": "P-PERECIVEL-SEM-LOTE",
+        "nome": "Iogurte Natural Sem Lote",
+        "preco": 5.50,
+        "perecivel": True,
+        "unidade_medida_id": test_database["unidade_id"],
+        "categoria_id": test_database["categoria_id"],
+        "localizacao_id": test_database["localizacao_id"],
+    }
+    response = await client.post("/api/v1/produtos", json=payload, headers=auth_headers)
+    assert response.status_code == 201, response.text
+    criado = response.json()
+    assert criado["codigo"] == "P-PERECIVEL-SEM-LOTE"
+    assert criado["perecivel"] is True
+    assert criado["total_lotes"] == 0
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -93,7 +119,7 @@ async def test_crud_e_filtros_produto(
     )
     assert response_update.status_code == 422
 
-    # 4. Atualização permitida (ex: nome e preço)
+    # 4. Atualização 
     response_update_ok = await client.put(
         f"/api/v1/produtos/{produto_id}",
         json={"nome": "Queijo Prato Premium", "preco": 34.00},

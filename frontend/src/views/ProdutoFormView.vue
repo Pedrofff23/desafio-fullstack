@@ -6,6 +6,7 @@ import CurrencyField from '@/components/CurrencyField.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import type { CatalogoProduto, Localizacao, LoteInput, NutrienteInput, ProdutoCreate, ProdutoUpdate } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
+import { scrollToError } from '@/utils/scroll';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -69,9 +70,12 @@ export default defineComponent({
       return this.editing ? 'Editar produto' : 'Novo produto';
     }
   },
+
   watch: {
-    'form.perecivel'(value: boolean) {
-      if (value && !this.editing) this.includeLot = true;
+    error(val: string) {
+      if (val) {
+        void scrollToError(this.$refs.errorAlert as any);
+      }
     }
   },
   async mounted() {
@@ -144,13 +148,15 @@ export default defineComponent({
         this.error = 'Informe um preço válido e não negativo.';
         return false;
       }
-      if (!this.editing && this.includeLot && (!this.lot.numero_lote || !this.lot.data_producao)) {
-        this.error = 'Informe o número e a produção do lote inicial.';
-        return false;
-      }
-      if (!this.editing && this.form.perecivel && !this.lot.data_validade) {
-        this.error = 'Produto perecível exige lote inicial com validade.';
-        return false;
+      if (!this.editing && this.includeLot) {
+        if (!this.lot.numero_lote || !this.lot.data_producao) {
+          this.error = 'Informe o número e a produção do lote inicial.';
+          return false;
+        }
+        if (this.form.perecivel && !this.lot.data_validade) {
+          this.error = 'Produtos perecíveis exigem data de validade para o lote inicial.';
+          return false;
+        }
       }
       if (this.nutrientes.some((item) => !item.nome.trim() || !item.unidade.trim())) {
         this.error = 'Preencha o nome e a unidade de todos os nutrientes.';
@@ -160,7 +166,10 @@ export default defineComponent({
     },
     async submit() {
       this.error = '';
-      if (!this.validate()) return;
+      if (!this.validate()) {
+        void scrollToError(this.$refs.errorAlert as any);
+        return;
+      }
       this.saving = true;
       try {
         const composition = {
@@ -200,6 +209,7 @@ export default defineComponent({
         await this.$router.push('/produtos');
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.errorAlert as any);
       } finally {
         this.saving = false;
       }
@@ -211,7 +221,7 @@ export default defineComponent({
 <template>
   <div>
     <PageHeader :title="title" subtitle="Dados comerciais, classificação e armazenamento." />
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error" ref="errorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-progress-linear v-if="loading" color="primary" indeterminate />
     <v-card v-else class="data-card pa-5 pa-md-7">
       <v-form @submit.prevent="submit">
@@ -281,7 +291,7 @@ export default defineComponent({
           <template v-if="!editing">
             <v-col cols="12"><v-divider class="my-2" /></v-col>
             <v-col cols="12">
-              <v-switch v-model="includeLot" color="primary" label="Cadastrar lote inicial" inset :disabled="form.perecivel" />
+              <v-switch v-model="includeLot" color="primary" label="Cadastrar lote inicial" inset />
             </v-col>
             <template v-if="includeLot">
               <v-col cols="12" md="5">

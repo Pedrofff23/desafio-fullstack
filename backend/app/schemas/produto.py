@@ -90,11 +90,13 @@ class ProdutoCreate(BaseModel):
 
     @model_validator(mode="after")
     def _require_expiration_for_perishable(self) -> "ProdutoCreate":
-        if self.perecivel and (
-            self.lote_inicial is None or self.lote_inicial.data_validade is None
+        if (
+            self.perecivel
+            and self.lote_inicial is not None
+            and self.lote_inicial.data_validade is None
         ):
             raise ValueError(
-                "Produto perecível exige lote inicial com data de validade"
+                "Produto perecível exige data de validade no lote inicial"
             )
         self._validate_composition()
         return self
