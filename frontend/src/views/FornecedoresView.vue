@@ -7,10 +7,12 @@ import AddressFields from '@/components/AddressFields.vue';
 import ContactFields from '@/components/ContactFields.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SearchFilterCard from '@/components/SearchFilterCard.vue';
+import SupplierInspectionDialog from '@/components/SupplierInspectionDialog.vue';
 import type { Fornecedor, FornecedorCreate } from '@/types/api';
 import { getErrorMessage } from '@/utils/errors';
 import { formatContact, formatDateTime } from '@/utils/formatters';
 import { createAddressInput, createContactInput, normalizeAddressInput, normalizeContactInput } from '@/utils/formFields';
+import { scrollToError } from '@/utils/scroll';
 
 function emptyForm(): FornecedorCreate {
   return {
@@ -28,7 +30,8 @@ export default defineComponent({
     AddressFields,
     ContactFields,
     PageHeader,
-    SearchFilterCard
+    SearchFilterCard,
+    SupplierInspectionDialog
   },
   data() {
     return {
@@ -70,6 +73,12 @@ export default defineComponent({
   watch: {
     searchQuery() {
       this.page = 1;
+    },
+    error(val: string) {
+      if (val) {
+        const target = this.dialog ? this.$refs.dialogErrorAlert : this.$refs.pageErrorAlert;
+        void scrollToError(target as any);
+      }
     }
   },
   mounted() {
@@ -131,6 +140,7 @@ export default defineComponent({
     async submit() {
       if (!this.form.nome_empresa.trim()) {
         this.error = 'O nome da empresa é obrigatório.';
+        void scrollToError(this.$refs.dialogErrorAlert as any);
         return;
       }
       this.saving = true;
@@ -154,6 +164,7 @@ export default defineComponent({
         await this.load();
       } catch (error) {
         this.error = getErrorMessage(error);
+        void scrollToError(this.$refs.dialogErrorAlert as any);
       } finally {
         this.saving = false;
       }
@@ -169,7 +180,7 @@ export default defineComponent({
         <v-btn color="primary" prepend-icon="mdi-plus" @click="openForm">Novo fornecedor</v-btn>
       </template>
     </PageHeader>
-    <v-alert v-if="error && !dialog" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="error && !dialog" ref="pageErrorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
       {{ success }}
     </v-alert>
@@ -242,7 +253,7 @@ export default defineComponent({
       <v-card>
         <v-card-title class="pa-5">{{ editingId ? 'Editar fornecedor' : 'Novo fornecedor' }}</v-card-title>
         <v-card-text>
-          <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+          <v-alert v-if="error" ref="dialogErrorAlert" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
           <v-form @submit.prevent="submit">
             <v-row>
               <v-col cols="12" md="8">
@@ -272,47 +283,6 @@ export default defineComponent({
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="inspectDialog" max-width="700">
-      <v-card v-if="selected">
-        <v-card-title class="d-flex align-center pa-5">
-          Fornecedor
-          <v-spacer />
-          <v-btn icon="mdi-close" variant="text" @click="inspectDialog = false" />
-        </v-card-title>
-        <v-card-text class="px-5">
-          <v-row>
-            <v-col cols="12" md="8">
-              <div class="text-caption">Empresa</div>
-              <strong>{{ selected.nome_empresa }}</strong>
-            </v-col>
-            <v-col cols="12" md="4">
-              <ActiveStatusChip :active="selected.ativo" />
-            </v-col>
-            <v-col cols="12" md="6">
-              <div class="text-caption">Contato</div>
-              {{ formatContact(selected.contato) }}
-            </v-col>
-            <v-col cols="12" md="6">
-              <div class="text-caption">Cadastro</div>
-              {{ formatDateTime(selected.data_cadastro) }}
-            </v-col>
-            <v-col cols="12"><v-divider /></v-col>
-            <v-col cols="12">
-              <div class="text-caption">Endereço</div>
-              {{ selected.endereco.logradouro }}, {{ selected.endereco.numero }}
-              <template v-if="selected.endereco.complemento">· {{ selected.endereco.complemento }}</template>
-              <br />
-              {{ selected.endereco.bairro }} · CEP {{ selected.endereco.cep }}
-              <br />
-              {{ selected.endereco.cidade.nome }}
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-card-actions class="pa-5">
-          <v-spacer />
-          <v-btn variant="text" @click="inspectDialog = false">Fechar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <SupplierInspectionDialog v-model="inspectDialog" :supplier="selected" @edit="edit" />
   </div>
 </template>
